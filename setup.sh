@@ -23,7 +23,7 @@ Usage: ./setup.sh [OPTIONS] [INSTANCE]
 
 Options:
   --build-only        Skip config.sh, then ask interactively for pull/build
-  --no-cache          Use with --build-only to build with --pull=always --no-cache
+  --no-cache          Reclone staged repos; local builds use --pull=always --no-cache
   --config-only       Stop after staging, merging, config, compose and quadlet
   --help              Show this help and exit
 
@@ -46,6 +46,8 @@ for arg in "$@"; do
         *) INSTANCE="$arg" ;;
     esac
 done
+
+$NO_CACHE && rm -rf "$SAFRANO_DIR"
 
 github_repo_url() {
     local repo="$1"
