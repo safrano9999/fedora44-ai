@@ -55,7 +55,7 @@ def main() -> None:
     model_config["provider"] = selected_provider.provider_id
     model_config["default"] = selected_model
     model_config["base_url"] = selected_provider.config.base_url
-    model_config["ssl_verify"] = False
+    model_config["ssl_verify"] = True
     selected_models = list(selected_provider.models)
     if selected_model not in selected_models:
         selected_models.insert(0, selected_model)

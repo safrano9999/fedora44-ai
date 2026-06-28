@@ -1,0 +1,23 @@
+#default-preset: /srv/shared/certs
+#required:
+CERTS=/srv/shared/certs
+
+#default-preset: 4.7.2
+#required:
+ELECTRUM_VERSION=4.7.2
+
+#default-preset: v0.20.1-beta
+#required:
+LND_VERSION=v0.20.1-beta
+
+#default-preset: 1.17.2
+#required:
+GETH_VERSION=1.17.2
+
+#default-preset: be4dc0c4
+#required:
+GETH_COMMIT=be4dc0c4
+
+#default-preset: 2.8.3
+#required:
+WEBHOOK_VERSION=2.8.3

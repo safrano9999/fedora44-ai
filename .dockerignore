@@ -3,6 +3,7 @@
 .env
 .tag
 config.conf
+build.conf
 container.conf
 *.container
 *-compose.yml

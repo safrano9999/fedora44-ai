@@ -131,7 +131,8 @@ for repo in "${REPOS[@]}"; do sync_repo "$repo"; done
     openclaw-config.service openclaw.service openclaw_common.py \
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     hermes.service hermes-dashboard.service \
-    cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container
+    cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
+    10-tailscale-ssh.conf 10-fedora-openai-v1.conf 20-safrano9999.conf
 
 # Merge and deduplicate env examples and requirements.
 echo "  Merging env.examples + requirements.txt..."
@@ -175,6 +176,59 @@ configured_container_name() {
     printf '%s\n' "$value"
 }
 
+build_setting() {
+    local key="$1"
+    local fallback="$2"
+    local file value=""
+
+    for file in "$SCRIPT_DIR/build.conf" "$SCRIPT_DIR/fedora.build.conf_example"; do
+        [ -f "$file" ] || continue
+        value="$(awk -F= -v key="$key" '
+            $1 == key {
+                value = substr($0, index($0, "=") + 1)
+                sub(/^[[:space:]]+/, "", value)
+                sub(/[[:space:]]+$/, "", value)
+                print value
+                exit
+            }
+        ' "$file")"
+        [ -n "$value" ] && break
+    done
+    printf '%s\n' "${value:-$fallback}"
+}
+
+stage_build_certificates() {
+    local source="$BUILD_CERTS"
+    local stage cert fingerprint
+    local count=0
+
+    [[ "$source" == /* ]] || {
+        echo "CERTS must be an absolute path: $source" >&2
+        return 1
+    }
+    stage="$SCRIPT_DIR/${source#/}"
+    rm -rf "$stage"
+    mkdir -p "$stage"
+
+    if [ ! -d "$source" ]; then
+        echo "  ! CERTS path not found; building without custom certificates: $source"
+        return 0
+    fi
+    command -v openssl >/dev/null 2>&1 || {
+        echo "openssl is required to stage CERTS" >&2
+        return 1
+    }
+
+    while IFS= read -r -d '' cert; do
+        openssl x509 -in "$cert" -noout >/dev/null 2>&1 || continue
+        fingerprint="$(openssl x509 -in "$cert" -noout -fingerprint -sha256 \
+            | cut -d= -f2 | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+        install -m 0644 "$cert" "$stage/fedora44-ai-${fingerprint}.crt"
+        count=$((count + 1))
+    done < <(find "$source" -type f \( -name '*.crt' -o -name '*.pem' \) -print0)
+    echo "  Staged $count custom certificate(s) from $source"
+}
+
 render_compose_from_conf() {
     local image="$1"
     local include_build="$2"
@@ -193,7 +247,10 @@ render_compose_from_conf() {
 
     (
     cd "$SCRIPT_DIR"
-    awk -v cwd="$SCRIPT_DIR" -v home="$HOME" -v image="$image" -v include_build="$include_build" -v has_container_conf="$has_container_conf" -v configured_name="$runtime_name" '
+    awk -v cwd="$SCRIPT_DIR" -v home="$HOME" -v image="$image" -v include_build="$include_build" -v has_container_conf="$has_container_conf" -v configured_name="$runtime_name" \
+        -v build_certs="$BUILD_CERTS" -v electrum_version="$BUILD_ELECTRUM_VERSION" \
+        -v lnd_version="$BUILD_LND_VERSION" -v geth_version="$BUILD_GETH_VERSION" \
+        -v geth_commit="$BUILD_GETH_COMMIT" -v webhook_version="$BUILD_WEBHOOK_VERSION" '
     function trim(s) {
         sub(/^[[:space:]]+/, "", s)
         sub(/[[:space:]]+$/, "", s)
@@ -386,6 +443,13 @@ render_compose_from_conf() {
             print "    build:" >> "compose.yml"
             print "      context: ." >> "compose.yml"
             print "      dockerfile: Containerfile" >> "compose.yml"
+            print "      args:" >> "compose.yml"
+            print "        CERTS: " yaml_dq(build_certs) >> "compose.yml"
+            print "        ELECTRUM_VERSION: " yaml_dq(electrum_version) >> "compose.yml"
+            print "        LND_VERSION: " yaml_dq(lnd_version) >> "compose.yml"
+            print "        GETH_VERSION: " yaml_dq(geth_version) >> "compose.yml"
+            print "        GETH_COMMIT: " yaml_dq(geth_commit) >> "compose.yml"
+            print "        WEBHOOK_VERSION: " yaml_dq(webhook_version) >> "compose.yml"
         }
         print "    image: " image >> "compose.yml"
         print "    labels:" >> "compose.yml"
@@ -454,6 +518,23 @@ render_compose_from_conf() {
     )
 }
 
+BUILD_CERTS="$(build_setting CERTS /srv/shared/certs)"
+BUILD_ELECTRUM_VERSION="$(build_setting ELECTRUM_VERSION 4.7.2)"
+BUILD_LND_VERSION="$(build_setting LND_VERSION v0.20.1-beta)"
+BUILD_GETH_VERSION="$(build_setting GETH_VERSION 1.17.2)"
+BUILD_GETH_COMMIT="$(build_setting GETH_COMMIT be4dc0c4)"
+BUILD_WEBHOOK_VERSION="$(build_setting WEBHOOK_VERSION 2.8.3)"
+stage_build_certificates
+
+BUILD_ARGS=(
+    --build-arg "CERTS=$BUILD_CERTS"
+    --build-arg "ELECTRUM_VERSION=$BUILD_ELECTRUM_VERSION"
+    --build-arg "LND_VERSION=$BUILD_LND_VERSION"
+    --build-arg "GETH_VERSION=$BUILD_GETH_VERSION"
+    --build-arg "GETH_COMMIT=$BUILD_GETH_COMMIT"
+    --build-arg "WEBHOOK_VERSION=$BUILD_WEBHOOK_VERSION"
+)
+
 DOCKER_IO_IMAGE="docker.io/safrano9999/fedora44-ai:latest"
 LOCAL_IMAGE="localhost/fedora44-ai:latest"
 RUNTIME_CONTAINER_NAME="$(configured_container_name)"
@@ -495,7 +576,7 @@ case "$IMG_CHOICE" in
         render_compose_from_conf "$LOCAL_IMAGE" true
         if $NO_CACHE; then
             echo "  Building $LOCAL_IMAGE with --no-cache ..."
-            podman build --pull=always --no-cache -t "$LOCAL_IMAGE" -f "$SCRIPT_DIR/Containerfile" "$SCRIPT_DIR"
+            podman build --pull=always --no-cache "${BUILD_ARGS[@]}" -t "$LOCAL_IMAGE" -f "$SCRIPT_DIR/Containerfile" "$SCRIPT_DIR"
         else
             echo "  Building $LOCAL_IMAGE ..."
             HOST_SRV_DIR="/srv/$INSTANCE"

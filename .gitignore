@@ -11,6 +11,7 @@ merge.conf
 merge_conf.sh
 config.conf
 config.conf_example
+build.conf
 container.conf
 container.example
 .agents/
@@ -27,3 +28,4 @@ SCRIPTS/**/__pycache__/
 SCRIPTS/**/*.pyc
 /safrano9999/
 /shared-scripts/
+/srv/

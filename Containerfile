@@ -5,6 +5,7 @@ ARG LND_VERSION=v0.20.1-beta
 ARG GETH_VERSION=1.17.2
 ARG GETH_COMMIT=be4dc0c4
 ARG WEBHOOK_VERSION=2.8.3
+ARG CERTS=/srv/shared/certs
 
 # DNF Cache Mount: Behält heruntergeladene RPMs über Builds hinweg,
 # falls der Layer neu gebaut werden muss.
@@ -13,7 +14,7 @@ RUN --mount=type=cache,target=/var/cache/dnf \
     bash bash-completion shadow-utils sudo \
     git gh tmux \
     nano vim-minimal less \
-    curl wget ca-certificates gnupg2 fuse-libs \
+    curl wget ca-certificates openssl gnupg2 fuse-libs \
     nodejs npm \
     python3 python3-pip \
     make gcc gcc-c++ \
@@ -25,6 +26,20 @@ RUN --mount=type=cache,target=/var/cache/dnf \
     v4l-utils zbar qrencode bc ffmpeg mpv libv4l \
     dbus-x11 xauth mesa-dri-drivers \
     tailscale
+
+COPY ${CERTS}/ /run/fedora44-ai-certs/
+
+RUN \
+    set -eu; \
+    find /run/fedora44-ai-certs -type f \( -name '*.crt' -o -name '*.pem' \) -print \
+      | while IFS= read -r cert; do \
+          if openssl x509 -in "$cert" -noout >/dev/null 2>&1; then \
+            fingerprint="$(openssl x509 -in "$cert" -noout -fingerprint -sha256 \
+              | cut -d= -f2 | tr -d ':' | tr '[:upper:]' '[:lower:]')"; \
+            install -m 0644 "$cert" "/etc/pki/ca-trust/source/anchors/fedora44-ai-${fingerprint}.crt"; \
+          fi; \
+        done; \
+    update-ca-trust
 
 RUN curl -sSfL https://release.anza.xyz/stable/install | sh \
  && find /root/.local/share/solana/install/active_release/bin -maxdepth 1 -type f -executable \
@@ -131,8 +146,6 @@ RUN gpgconf --kill all && rm -rf /root/.gnupg \
  && rm -rf /tmp/geth \
  && geth version
 
-RUN useradd -m -s /bin/bash appuser || true
-
 RUN mkdir -p /tmp/runtime-root \
  && chmod 700 /tmp/runtime-root
 
@@ -171,60 +184,38 @@ COPY services/*.service /etc/systemd/system/
 RUN install -m 0644 /opt/safrano9999/KACHELMANN/systemd/kachelmann-webui.service /etc/systemd/system/kachelmann-webui.service \
  && install -m 0644 /opt/safrano9999/SPANKER/systemd/spanker-webui.service /etc/systemd/system/spanker-webui.service
 COPY services/fedora44-runtime-environment-generator.sh /usr/lib/systemd/system-generators/fedora44-runtime-environment-generator
-RUN mkdir -p /etc/systemd/system/tailscale-up.service.d \
-    /etc/systemd/system/openclaw-config.service.d \
-    /etc/systemd/system/openclaw.service.d \
- && printf '%s\n' '[Service]' \
-      'ExecStart=' \
-      'ExecStart=/bin/bash -c '\''args=(up --authkey="$$TS_AUTHKEY" --accept-routes --accept-dns --ssh); [ -n "$$TS_HOSTNAME" ] && args+=(--hostname="$$TS_HOSTNAME"); exec /usr/bin/tailscale "$${args[@]}"'\''' \
-      'ExecStartPost=-/usr/bin/tailscale set --ssh' \
-      > /etc/systemd/system/tailscale-up.service.d/10-tailscale-ssh.conf \
- && printf '%s\n' '[Service]' \
-      'PassEnvironment=OPENAI_V1_PROVIDER OPENAI_V1_URL OPENAI_V1_PORT OPENAI_V1_KEY OPENCLAW_OPENAI_V1_DEFAULT_LLM BRAVE_API_KEY VIKUNJA_HOST VIKUNJA_URL TOKEN_WORKER TOKEN_ARCHITECT TOKEN_QC' \
-      'ExecCondition=/bin/bash -c '\''[ -n "$$OPENAI_V1_KEY" ] && [ -n "$$OPENAI_V1_URL" ] && [ -n "$$OPENAI_V1_PORT" ]'\''' \
-      > /etc/systemd/system/openclaw-config.service.d/10-fedora-openai-v1.conf \
- && printf '%s\n' '[Service]' \
-      'PassEnvironment=OPENAI_V1_PROVIDER OPENAI_V1_URL OPENAI_V1_PORT OPENAI_V1_KEY OPENCLAW_OPENAI_V1_DEFAULT_LLM BRAVE_API_KEY VIKUNJA_HOST VIKUNJA_URL TOKEN_WORKER TOKEN_ARCHITECT TOKEN_QC' \
-      'ExecCondition=/bin/bash -c '\''[ -n "$$OPENAI_V1_KEY" ] && [ -n "$$OPENAI_V1_URL" ] && [ -n "$$OPENAI_V1_PORT" ]'\''' \
-      > /etc/systemd/system/openclaw.service.d/10-fedora-openai-v1.conf \
- && printf '%s\n' '[Unit]' \
-      'Requires=openclaw-safrano9999.service' \
-      'After=openclaw-safrano9999.service' \
-      > /etc/systemd/system/openclaw.service.d/20-safrano9999.conf
+COPY services/systemd/ /etc/systemd/system/
 COPY services/fedora44-bin/* /usr/local/share/fedora44-ai/bin/
-
-RUN systemctl enable codeanalyst.service jugo.service citadel.service pvdach.service kiwix-bridge.service napoleon.service naturalgrounding.service \
-    citadel-setup.service citadel-scan.service bip39.service spanker-webui.service fedora44-ai.service \
-    tailscaled.service tailscale-up.service openclaw-config.service openclaw-safrano9999.service openclaw.service hermes.service \
-    hermes-dashboard.service
 
 RUN echo '{"hasCompletedOnboarding":true}' > /root/.claude.json
 
 COPY services/openclaw-configure.py /usr/local/bin/openclaw-configure
 COPY services/openclaw-safrano9999.py /usr/local/bin/openclaw-safrano9999
 COPY services/hermes-configure-openai-v1.py /usr/local/bin/hermes-configure-openai-v1
-COPY services/hermes-patch-ssl-verify.py /usr/local/bin/hermes-patch-ssl-verify
 COPY services/openclaw-patch-models-command.py /usr/local/bin/openclaw-patch-models-command
 COPY services/vikai-bootstrap-openclaw-agents.py /usr/local/bin/vikai-bootstrap-openclaw-agents
 COPY services/codex-save-auth.sh /usr/local/bin/codex-save-auth
 COPY services/citadel-persist.sh /usr/local/bin/citadel-persist
 COPY services/fedora44-ai-init.sh /usr/local/bin/fedora44-ai-init
 COPY services/openclaw_common.py /usr/local/bin/openclaw_common.py
-COPY SCRIPTS/safrano9999/python_header.py /usr/local/bin/python_header.py
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_crontabs.sh /usr/local/bin/openclaw-crontabs
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_allow_all.mjs /usr/local/bin/openclaw-allow-all
 
-RUN /opt/safrano9999/SCRIPTS/safrano9999/image/relink_shared.sh \
+RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/python_header.py \
+ && /opt/safrano9999/SCRIPTS/safrano9999/image/relink_shared.sh \
+    --extra-root /usr/local/bin \
+    --extra-root /etc/systemd/system \
+    -- \
     config.sh merge_conf.sh python_header.py \
     openclaw-config.service openclaw.service openclaw_common.py \
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
-    cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container
+    cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
+    10-tailscale-ssh.conf 10-fedora-openai-v1.conf 20-safrano9999.conf
 
 RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist/#' \
       /usr/local/bin/openclaw-allow-all \
  && chmod +x /usr/local/bin/openclaw-configure /usr/local/bin/hermes-configure-openai-v1 \
     /usr/local/bin/openclaw-safrano9999 \
-    /usr/local/bin/hermes-patch-ssl-verify \
     /usr/local/bin/openclaw-patch-models-command \
     /usr/local/bin/vikai-bootstrap-openclaw-agents \
     /usr/local/bin/codex-save-auth \
@@ -235,7 +226,11 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
     /usr/lib/systemd/system-generators/fedora44-runtime-environment-generator \
  && chmod +x /usr/local/share/fedora44-ai/bin/*
 
-RUN /usr/local/bin/hermes-patch-ssl-verify
+RUN systemctl enable codeanalyst.service jugo.service citadel.service pvdach.service kiwix-bridge.service napoleon.service naturalgrounding.service \
+    citadel-setup.service citadel-scan.service bip39.service spanker-webui.service fedora44-ai.service \
+    tailscaled.service tailscale-up.service openclaw-config.service openclaw-safrano9999.service openclaw.service hermes.service \
+    hermes-dashboard.service
+
 #RUN /usr/local/bin/openclaw-patch-models-command
 
 STOPSIGNAL SIGRTMIN+3
