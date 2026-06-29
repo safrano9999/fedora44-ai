@@ -8,6 +8,7 @@ SCRIPTS_DIR="$SCRIPT_DIR/SCRIPTS"
 SAFRANO_SCRIPTS_DIR="$SCRIPTS_DIR/safrano9999"
 IMAGE_SCRIPTS_DIR="$SAFRANO_SCRIPTS_DIR/image"
 SQLITE_PERSISTENCE="$SAFRANO_SCRIPTS_DIR/sqlite_persistence.sh"
+OPTIONAL_PERSISTENCE="$SAFRANO_SCRIPTS_DIR/optional_persistence.sh"
 DEV_SCRIPTS_DIR="${DEV_SCRIPTS_DIR:-$SCRIPT_DIR/../../SCRIPTS}"
 
 CONFIG_ONLY=false
@@ -136,7 +137,7 @@ for repo in "${REPOS[@]}"; do sync_repo "$repo"; done
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     hermes.service hermes-dashboard.service \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
-    sqlite_persistence.sh \
+    sqlite_persistence.sh optional_persistence.sh \
     10-tailscale-ssh.conf 10-fedora-openai-v1.conf 20-safrano9999.conf
 
 # Merge and deduplicate every example class and requirements.
@@ -225,6 +226,7 @@ render_compose_from_conf() {
     local include_build="$2"
     local runtime_name
     local sqlite_volumes
+    local persistent_volumes persistent_entries
     local has_container_conf=false
     local inputs=()
     runtime_name="$(configured_container_name)"
@@ -232,6 +234,11 @@ render_compose_from_conf() {
         --repo-root "$SAFRANO_DIR" \
         --config-dir "$SCRIPT_DIR" \
         --container "$runtime_name" | paste -sd, -)"
+    persistent_volumes="$("$OPTIONAL_PERSISTENCE" mounts \
+        --config-dir "$SCRIPT_DIR" \
+        --container "$runtime_name" | paste -sd, -)"
+    persistent_entries="$("$OPTIONAL_PERSISTENCE" entries \
+        --config-dir "$SCRIPT_DIR" | awk -F '\t' '{print $1 "=" $2}' | paste -sd, -)"
     [ -f "$SCRIPT_DIR/config.conf_example" ] && inputs+=("$SCRIPT_DIR/config.conf_example")
     [ -f "$SCRIPT_DIR/container.example" ] && inputs+=("$SCRIPT_DIR/container.example")
     [ -f "$SCRIPT_DIR/config.conf" ] && inputs+=("$SCRIPT_DIR/config.conf")
@@ -243,7 +250,7 @@ render_compose_from_conf() {
 
     (
     cd "$SCRIPT_DIR"
-    awk -v cwd="$SCRIPT_DIR" -v home="$HOME" -v image="$image" -v include_build="$include_build" -v has_container_conf="$has_container_conf" -v configured_name="$runtime_name" -v sqlite_volumes="$sqlite_volumes" \
+    awk -v cwd="$SCRIPT_DIR" -v home="$HOME" -v image="$image" -v include_build="$include_build" -v has_container_conf="$has_container_conf" -v configured_name="$runtime_name" -v sqlite_volumes="$sqlite_volumes" -v persistent_volumes="$persistent_volumes" -v persistent_entries="$persistent_entries" -v extra_port_range="$BUILD_PORT_RANGE" \
         -v build_certs="$BUILD_CERTS" -v electrum_version="$BUILD_ELECTRUM_VERSION" \
         -v lnd_version="$BUILD_LND_VERSION" -v geth_version="$BUILD_GETH_VERSION" \
         -v geth_commit="$BUILD_GETH_COMMIT" -v webhook_version="$BUILD_WEBHOOK_VERSION" '
@@ -383,6 +390,21 @@ render_compose_from_conf() {
         default_publish_host = values["FASTAPI_HOST"]
         if (default_publish_host == "") default_publish_host = "127.0.0.1"
 
+        if (extra_port_range != "" && tolower(extra_port_range) != "blank") {
+            if (extra_port_range !~ /^[0-9]+-[0-9]+$/) {
+                print "Invalid FEDORA44_AI_PORT_RANGE: " extra_port_range > "/dev/stderr"
+                exit 2
+            }
+            split(extra_port_range, range_parts, "-")
+            range_start = range_parts[1] + 0
+            range_end = range_parts[2] + 0
+            if (range_start < 1 || range_end > 65535 || range_start > range_end || range_end - range_start > 255) {
+                print "Invalid FEDORA44_AI_PORT_RANGE: " extra_port_range > "/dev/stderr"
+                exit 2
+            }
+            for (port = range_start; port <= range_end; port++) add_port(default_publish_host ":" port ":" port)
+        }
+
         for (i = 1; i <= value_count; i++) {
             key = order[i]
             value = values[key]
@@ -434,10 +456,11 @@ render_compose_from_conf() {
             split(items[i], parts, ":")
             add_volume(items[i], parts[1])
         }
-
-        add_volume(volume_prefix "-codex-cli-auth:/root/.codex:Z", volume_prefix "-codex-cli-auth")
-        add_volume(volume_prefix "-openclaw-gpt-auth-profiles:/root/.openclaw/agents:Z", volume_prefix "-openclaw-gpt-auth-profiles")
-        add_volume(volume_prefix "-openclaw-gpt-auth-secrets:/root/.config/openclaw:Z", volume_prefix "-openclaw-gpt-auth-secrets")
+        n = split_csv(persistent_volumes, items)
+        for (i = 1; i <= n; i++) {
+            split(items[i], parts, ":")
+            add_volume(items[i], parts[1])
+        }
 
         print "services:" > "compose.yml"
         print "  fedora44-ai:" >> "compose.yml"
@@ -465,6 +488,11 @@ render_compose_from_conf() {
         print "      - config.conf" >> "compose.yml"
         if (has_container_conf == "true") print "      - container.conf" >> "compose.yml"
         print "      - .env" >> "compose.yml"
+        n = split_csv(persistent_entries, items)
+        if (n > 0 && items[1] != "") {
+            print "    environment:" >> "compose.yml"
+            for (i = 1; i <= n; i++) print "      - " yaml_dq(items[i]) >> "compose.yml"
+        }
         print "    volumes:" >> "compose.yml"
         print "      - " yaml_dq("${HOST_HOME_DIR:-home}:/home") >> "compose.yml"
         print "      - " yaml_dq("${HOST_ROOT_DIR:-root}:/root") >> "compose.yml"
@@ -497,6 +525,8 @@ render_compose_from_conf() {
         print "EnvironmentFile=" cwd "/config.conf" >> "fedora44-ai.container"
         if (has_container_conf == "true") print "EnvironmentFile=" cwd "/container.conf" >> "fedora44-ai.container"
         print "EnvironmentFile=" cwd "/.env" >> "fedora44-ai.container"
+        n = split_csv(persistent_entries, items)
+        for (i = 1; i <= n; i++) if (items[i] != "") print "Environment=" systemd_dq(items[i]) >> "fedora44-ai.container"
         for (i = 1; i <= disabled_port_count; i++) print "# " disabled_ports[i] >> "fedora44-ai.container"
         for (i = 1; i <= port_count; i++) print "PublishPort=" ports[i] >> "fedora44-ai.container"
         for (i = 1; i <= disabled_volume_count; i++) print "# Volume=" disabled_volumes[i] >> "fedora44-ai.container"
@@ -526,6 +556,7 @@ BUILD_LND_VERSION="$(build_setting LND_VERSION v0.20.1-beta)"
 BUILD_GETH_VERSION="$(build_setting GETH_VERSION 1.17.2)"
 BUILD_GETH_COMMIT="$(build_setting GETH_COMMIT be4dc0c4)"
 BUILD_WEBHOOK_VERSION="$(build_setting WEBHOOK_VERSION 2.8.3)"
+BUILD_PORT_RANGE="$(build_setting FEDORA44_AI_PORT_RANGE "")"
 stage_build_certificates
 
 BUILD_ARGS=(

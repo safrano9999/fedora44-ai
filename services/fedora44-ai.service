@@ -1,5 +1,5 @@
 [Unit]
-Description=Fedora43 AI local state sync
+Description=Fedora44 AI deterministic initialization
 
 [Service]
 Type=oneshot

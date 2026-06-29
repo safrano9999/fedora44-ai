@@ -1,18 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mkdir -p /persistent/bin /persistent/codex-auth
-chmod 700 /persistent/codex-auth 2>/dev/null || true
+/usr/local/bin/optional_persistence.sh init
 
-if [ -d /usr/local/share/fedora44-ai/bin ]; then
-    for script in /usr/local/share/fedora44-ai/bin/*; do
-        [ -f "$script" ] || continue
-        target="/persistent/bin/$(basename "$script")"
-        [ -e "$target" ] || install -m 700 "$script" "$target"
-    done
-fi
-
-find /persistent/bin -maxdepth 1 -type f \( -name "*.sh" -o -name "*.py" \) -print \
+find /usr/local/share/fedora44-ai/bin -maxdepth 1 -type f \( -name "*.sh" -o -name "*.py" \) -print \
     | sort \
     | while IFS= read -r script; do
         case "$script" in

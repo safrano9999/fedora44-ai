@@ -185,7 +185,7 @@ RUN install -m 0644 /opt/safrano9999/KACHELMANN/systemd/kachelmann-webui.service
  && install -m 0644 /opt/safrano9999/SPANKER/systemd/spanker-webui.service /etc/systemd/system/spanker-webui.service
 COPY services/fedora44-runtime-environment-generator.sh /usr/lib/systemd/system-generators/fedora44-runtime-environment-generator
 COPY services/systemd/ /etc/systemd/system/
-COPY services/fedora44-bin/* /usr/local/share/fedora44-ai/bin/
+RUN mkdir -p /usr/local/share/fedora44-ai/bin
 
 RUN echo '{"hasCompletedOnboarding":true}' > /root/.claude.json
 
@@ -194,14 +194,13 @@ COPY services/openclaw-safrano9999.py /usr/local/bin/openclaw-safrano9999
 COPY services/hermes-configure-openai-v1.py /usr/local/bin/hermes-configure-openai-v1
 COPY services/openclaw-patch-models-command.py /usr/local/bin/openclaw-patch-models-command
 COPY services/vikai-bootstrap-openclaw-agents.py /usr/local/bin/vikai-bootstrap-openclaw-agents
-COPY services/codex-save-auth.sh /usr/local/bin/codex-save-auth
-COPY services/citadel-persist.sh /usr/local/bin/citadel-persist
 COPY services/fedora44-ai-init.sh /usr/local/bin/fedora44-ai-init
 COPY services/openclaw_common.py /usr/local/bin/openclaw_common.py
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_crontabs.sh /usr/local/bin/openclaw-crontabs
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_allow_all.mjs /usr/local/bin/openclaw-allow-all
 
 RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/python_header.py \
+ && ln -f /opt/safrano9999/SCRIPTS/safrano9999/optional_persistence.sh /usr/local/bin/optional_persistence.sh \
  && /opt/safrano9999/SCRIPTS/safrano9999/image/relink_shared.sh \
     --extra-root /usr/local/bin \
     --extra-root /etc/systemd/system \
@@ -210,7 +209,7 @@ RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/p
     openclaw-config.service openclaw.service openclaw_common.py \
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
-    sqlite_persistence.sh \
+    sqlite_persistence.sh optional_persistence.sh \
     10-tailscale-ssh.conf 10-fedora-openai-v1.conf 20-safrano9999.conf
 
 RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist/#' \
@@ -219,8 +218,7 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
     /usr/local/bin/openclaw-safrano9999 \
     /usr/local/bin/openclaw-patch-models-command \
     /usr/local/bin/vikai-bootstrap-openclaw-agents \
-    /usr/local/bin/codex-save-auth \
-    /usr/local/bin/citadel-persist \
+    /usr/local/bin/optional_persistence.sh \
     /usr/local/bin/fedora44-ai-init \
     /usr/local/bin/openclaw-crontabs \
     /usr/local/bin/openclaw-allow-all \
@@ -228,7 +226,7 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
  && chmod +x /usr/local/share/fedora44-ai/bin/*
 
 RUN systemctl enable codeanalyst.service jugo.service citadel.service pvdach.service kiwix-bridge.service napoleon.service naturalgrounding.service \
-    citadel-setup.service citadel-scan.service bip39.service spanker-webui.service fedora44-ai.service \
+    citadel-scan.service bip39.service spanker-webui.service fedora44-ai.service \
     tailscaled.service tailscale-up.service openclaw-config.service openclaw-safrano9999.service openclaw.service hermes.service \
     hermes-dashboard.service
 

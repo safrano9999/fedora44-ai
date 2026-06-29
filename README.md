@@ -283,11 +283,13 @@ entries:
 The renderer supports:
 
 - published ports via `*_PUBLISH_PORT`
+- an optional same-number host/container range via `FEDORA44_AI_PORT_RANGE` from `build.conf`
 - host bind address via `FASTAPI_HOST` or `*_PUBLISH_HOST`
 - regular environment variables
 - capabilities via `*_CAPABILITIES`
 - devices via `*_DEVICES`
 - volumes via `*_VOLUMES`
+- dedicated named volumes for nonblank `*_PERSISTENT_PATH` values
 
 Generated compose always includes:
 
@@ -338,12 +340,11 @@ Inside the container, systemd manages the runtime.
 | `tailscale-up.service` | oneshot | Runs `tailscale up` with auth key and optional hostname |
 | `codeanalyst.service` | simple | Runs CODEANALYST FastAPI UI |
 | `jugo.service` | simple | Runs JUGO FastAPI UI |
-| `citadel-setup.service` | oneshot | Prepares CITADEL runtime directories |
 | `citadel.service` | simple | Runs CITADEL FastAPI UI |
 | `citadel-scan.service` | oneshot | Runs CITADEL `scan.sh` after a delay |
 | `bip39.service` | simple | Serves the offline BIP39 HTML page |
 | `kiwix-bridge.service` | simple | Runs KIWIX_BRIDGE local Kiwix/Wikipedia RAG UI |
-| `fedora44-ai.service` | oneshot | Runs local init scripts from `/persistent/bin` |
+| `fedora44-ai.service` | oneshot | Creates optional persistence paths and runs image-owned init scripts |
 | `openclaw-config.service` | oneshot | Writes OpenClaw runtime config before gateway start |
 | `openclaw.service` | simple | Starts OpenClaw Gateway on internal port `18789` |
 | `hermes.service` | simple | Starts Hermes Agent gateway |
@@ -763,7 +764,6 @@ CITADEL runs from:
 
 Services:
 
-- `citadel-setup.service`
 - `citadel.service`
 - `citadel-scan.service`
 
@@ -1001,8 +1001,7 @@ Token handling is deliberately environment-based:
   `BRAVE_API_KEY` as environment-backed references.
 - Hermes stores provider key environment names, not key values.
 - VikAI writes each agent token into that agent's workspace `.vikunjaenv`.
-- Codex login is persisted by `/persistent/codex-auth/auth.json`; run
-  `codex-save-auth` after an interactive container login.
+- `CODEX_PERSISTENT_PATH=/root/.codex` preserves Codex state and `auth.json` in its generated named volume; blank keeps it ephemeral.
 
 Do not commit `.env`, `config.conf`, generated compose, or generated Quadlet
 files.

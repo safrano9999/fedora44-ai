@@ -25,10 +25,10 @@ The build context deliberately excludes secrets and generated configuration thro
 - Container-only settings such as publish ports, capabilities, devices, and volumes live in `container.conf`.
 - The generated Quadlet injects all three files with `EnvironmentFile=` and publishes only the configured host ports.
 - PID 1 is systemd. Units are installed under `/etc/systemd/system/` and enabled for `multi-user.target` during the image build.
-- `/persistent` is the general persistent volume. Separate generated volumes preserve Codex auth and OpenClaw model-auth state.
+- `*_PERSISTENT_PATH` values from `build.conf` are optional. Nonblank absolute paths create dedicated named volumes and are created by `fedora44-ai-init`; blank values remain ephemeral.
 - `services/fedora44-runtime-environment-generator.sh` writes a global service drop-in at manager startup so injected container environment variables are available to system services.
 
-## The 55 image steps
+## The 53 image steps
 
 ### 01 - Fedora 44 base image
 
@@ -240,7 +240,7 @@ RUN --mount=type=cache,target=/root/.npm \
 
 - **Instruction:** `openclaw plugins install clawhub:@openclaw/codex`.
 - **Purpose:** Adds the Codex harness to OpenClaw.
-- **Runtime configuration:** `openclaw-configure.py` enables the `codex` plugin entry; auth is persisted through the generated Codex volume and `/persistent/codex-auth` helpers.
+- **Runtime configuration:** `openclaw-configure.py` enables the `codex` plugin entry. `CODEX_PERSISTENT_PATH=/root/.codex` optionally persists its complete state, including `auth.json`.
 
 ### 18 - cloudflared binary
 
@@ -536,15 +536,14 @@ COPY services/systemd/ /etc/systemd/system/
 - **OpenClaw config drop-in:** Passes OpenAI-v1/VikAI variables and requires `OPENAI_V1_URL`, `OPENAI_V1_PORT`, and `OPENAI_V1_KEY`.
 - **OpenClaw gateway drop-ins:** Pass the same provider variables and make `openclaw.service` require and follow `openclaw-safrano9999.service`.
 
-### 38 - Persistent initialization scripts
+### 38 - Initialization script directory
 
 ```dockerfile
-COPY services/fedora44-bin/* /usr/local/share/fedora44-ai/bin/
+RUN mkdir -p /usr/local/share/fedora44-ai/bin
 ```
 
-- **Instruction:** Copies `services/fedora44-bin/*` to `/usr/local/share/fedora44-ai/bin/`.
-- **Current seed:** `010-codex-auth-restore.sh` restores `/persistent/codex-auth/auth.json` to `/root/.codex/auth.json` when present.
-- **Runtime:** `fedora44-ai-init` copies missing seed scripts into `/persistent/bin` and executes all persisted `.sh` and `.py` files in sorted order.
+- **Instruction:** Creates the deterministic image-owned initialization directory.
+- **Runtime:** `fedora44-ai-init` executes image scripts from this directory in sorted order without persisting them.
 
 ### 39 - Claude Code onboarding marker
 
@@ -610,28 +609,7 @@ COPY services/vikai-bootstrap-openclaw-agents.py /usr/local/bin/vikai-bootstrap-
 - **Variables:** `TOKEN_WORKER`, `TOKEN_ARCHITECT`, and `TOKEN_QC` must be supplied together.
 - **Purpose:** Creates the worker, architect, and QC OpenClaw agent workspaces and links their VikAI skills.
 
-### 45 - Codex auth save helper
-
-```dockerfile
-COPY services/codex-save-auth.sh /usr/local/bin/codex-save-auth
-```
-
-- **Instruction:** Copies `services/codex-save-auth.sh` to `/usr/local/bin/codex-save-auth`.
-- **Purpose:** Copies `/root/.codex/auth.json` to `/persistent/codex-auth/auth.json` with restrictive permissions.
-- **Invocation:** Manual, after an interactive Codex login. The initialization seed copied in step 38 restores the saved file on later starts.
-
-### 46 - CITADEL persistence helper
-
-```dockerfile
-COPY services/citadel-persist.sh /usr/local/bin/citadel-persist
-```
-
-- **Instruction:** Copies `services/citadel-persist.sh` to `/usr/local/bin/citadel-persist`.
-- **Runtime caller:** `citadel-setup.service`, before `citadel.service`.
-- **Purpose:** Moves CITADEL cache, icons, Caddy output, scan JSON, provider state, and route JSON into `${CITADEL_DATA_DIR:-/persistent/citadel}` and replaces runtime paths with symlinks.
-- **Result:** CITADEL state survives container recreation through the `/persistent` volume.
-
-### 47 - Fedora initialization dispatcher
+### 45 - Fedora initialization dispatcher
 
 ```dockerfile
 COPY services/fedora44-ai-init.sh /usr/local/bin/fedora44-ai-init
@@ -639,9 +617,9 @@ COPY services/fedora44-ai-init.sh /usr/local/bin/fedora44-ai-init
 
 - **Instruction:** Copies `services/fedora44-ai-init.sh` to `/usr/local/bin/fedora44-ai-init`.
 - **Runtime caller:** `fedora44-ai.service` at `multi-user.target`.
-- **Purpose:** Seeds `/persistent/bin` from the image and executes persistent initialization scripts in deterministic filename order.
+- **Purpose:** Creates configured optional persistence paths, then executes deterministic image scripts in filename order.
 
-### 48 - Shared OpenClaw Python helpers
+### 46 - Shared OpenClaw Python helpers
 
 ```dockerfile
 COPY services/openclaw_common.py /usr/local/bin/openclaw_common.py
@@ -652,7 +630,7 @@ COPY services/openclaw_common.py /usr/local/bin/openclaw_common.py
 - **Purpose:** Centralizes OpenClaw command lookup, environment references, agent config, Telegram setup, Tailscale origins, and OpenAI-v1 provider/model discovery.
 - **SOT:** Relinked across matching copies again in the final hardlink pass.
 
-### 49 - OpenClaw cron installer
+### 47 - OpenClaw cron installer
 
 ```dockerfile
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_crontabs.sh /usr/local/bin/openclaw-crontabs
@@ -663,7 +641,7 @@ COPY SCRIPTS/safrano9999/container/openclaw/openclaw_crontabs.sh /usr/local/bin/
 - **Purpose:** Converts comma-separated CET entries from `OPENCLAW_CRONTABS` or `OPENCLAW_CRONTAB` into OpenClaw cron jobs for `agent:main:main`.
 - **Event:** Each job emits `__safrano9999_webhooks__`, which the generated `WEBHOOK-RUNNER` handles.
 
-### 50 - OpenClaw command-authorization helper
+### 48 - OpenClaw command-authorization helper
 
 ```dockerfile
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_allow_all.mjs /usr/local/bin/openclaw-allow-all
@@ -672,12 +650,13 @@ COPY SCRIPTS/safrano9999/container/openclaw/openclaw_allow_all.mjs /usr/local/bi
 - **Instruction:** Copies `openclaw_allow_all.mjs` to `/usr/local/bin/openclaw-allow-all`.
 - **Purpose:** Repairs OpenClaw command authorization when cron registration initially fails.
 - **Runtime caller:** `/usr/local/bin/openclaw-crontabs` retries cron creation after invoking it.
-- **Path adjustment:** Step 52 changes its module URL from `/app/dist` to the global npm OpenClaw path.
+- **Path adjustment:** Step 50 changes its module URL from `/app/dist` to the global npm OpenClaw path.
 
-### 51 - Recreate shared hardlinks inside the image
+### 49 - Recreate shared hardlinks inside the image
 
 ```dockerfile
 RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/python_header.py \
+ && ln -f /opt/safrano9999/SCRIPTS/safrano9999/optional_persistence.sh /usr/local/bin/optional_persistence.sh \
  && /opt/safrano9999/SCRIPTS/safrano9999/image/relink_shared.sh \
     --extra-root /usr/local/bin \
     --extra-root /etc/systemd/system \
@@ -686,15 +665,16 @@ RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/p
     openclaw-config.service openclaw.service openclaw_common.py \
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
+    sqlite_persistence.sh optional_persistence.sh \
     10-tailscale-ssh.conf 10-fedora-openai-v1.conf 20-safrano9999.conf
 ```
 
 - **Instruction:** Hardlinks `python_header.py` directly into `/usr/local/bin`, then runs `relink_shared.sh` for all named SOT files.
 - **Targets:** Matching files are relinked under `/opt/safrano9999`, `/usr/local/bin`, and `/etc/systemd/system`.
-- **Files:** Includes `config.sh`, `python_header.py`, OpenClaw/Tailscale/Cloudflare units and drop-ins, `openclaw_common.py`, and `safrano9999_plugins.py`.
+- **Files:** Includes `config.sh`, `python_header.py`, SQLite and optional persistence helpers, OpenClaw/Tailscale/Cloudflare units and drop-ins, `openclaw_common.py`, and `safrano9999_plugins.py`.
 - **Invariant:** Deployed runtime binaries and systemd units share their inode with the SCRIPTS SOT, so in-container development changes the canonical implementation.
 
-### 52 - Runtime path adjustment and executable modes
+### 50 - Runtime path adjustment and executable modes
 
 ```dockerfile
 RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist/#' \
@@ -703,8 +683,7 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
     /usr/local/bin/openclaw-safrano9999 \
     /usr/local/bin/openclaw-patch-models-command \
     /usr/local/bin/vikai-bootstrap-openclaw-agents \
-    /usr/local/bin/codex-save-auth \
-    /usr/local/bin/citadel-persist \
+    /usr/local/bin/optional_persistence.sh \
     /usr/local/bin/fedora44-ai-init \
     /usr/local/bin/openclaw-crontabs \
     /usr/local/bin/openclaw-allow-all \
@@ -716,22 +695,22 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
 - **Purpose:** Adapts the shared helper to the globally installed npm layout and guarantees systemd can execute all copied scripts.
 - **Also covered:** The systemd generator and all `/usr/local/share/fedora44-ai/bin/*` initialization scripts.
 
-### 53 - Enable the runtime service graph
+### 51 - Enable the runtime service graph
 
 ```dockerfile
 RUN systemctl enable codeanalyst.service jugo.service citadel.service pvdach.service kiwix-bridge.service napoleon.service naturalgrounding.service \
-    citadel-setup.service citadel-scan.service bip39.service spanker-webui.service fedora44-ai.service \
+    citadel-scan.service bip39.service spanker-webui.service fedora44-ai.service \
     tailscaled.service tailscale-up.service openclaw-config.service openclaw-safrano9999.service openclaw.service hermes.service \
     hermes-dashboard.service
 ```
 
 - **Instruction:** Enables the selected application and infrastructure units after deployment, hardlinking, and mode adjustment are complete.
 - **Enabled applications:** CODEANALYST, JUGO, CITADEL, PV_D-A-CH, KIWIX_BRIDGE, Napoleon, NaturalGrounding, BIP39, and SPANKER WebUI.
-- **Enabled setup units:** CITADEL setup/scan, Fedora initialization, Tailscale daemon/up, OpenClaw config/plugin/gateway, Hermes gateway, and Hermes dashboard.
+- **Enabled setup units:** CITADEL scan, Fedora initialization, Tailscale daemon/up, OpenClaw config/plugin/gateway, Hermes gateway, and Hermes dashboard.
 - **KACHELMANN:** Not enabled directly; `openclaw-safrano9999.service` starts it after registering plugins.
 - **Cloudflare:** Not enabled here. It remains conditional on `CLOUDFLARED_START` or CITADEL's runtime Cloudflare logic.
 
-### 54 - systemd stop signal
+### 52 - systemd stop signal
 
 ```dockerfile
 STOPSIGNAL SIGRTMIN+3
@@ -741,7 +720,7 @@ STOPSIGNAL SIGRTMIN+3
 - **Purpose:** Uses systemd's standard container shutdown signal instead of a generic process signal.
 - **Result:** PID 1 performs an orderly unit shutdown when Podman stops the container.
 
-### 55 - systemd as PID 1
+### 53 - systemd as PID 1
 
 ```dockerfile
 CMD ["/sbin/init"]
@@ -755,10 +734,10 @@ CMD ["/sbin/init"]
 ## Runtime boot order summary
 
 1. systemd's runtime generator imports the injected environment and optionally enables cloudflared.
-2. `fedora44-ai.service` restores persistent initialization state.
+2. `fedora44-ai.service` creates configured optional persistence paths and runs image-owned initialization scripts.
 3. `tailscaled.service` and `tailscale-up.service` establish the optional in-container Tailscale node when `TS_AUTHKEY` is present.
 4. Application WebUIs start from their individual units.
-5. CITADEL establishes persistent state, starts its WebUI, then scans after dependent services become available.
+5. CITADEL starts its WebUI, then scans after dependent services become available.
 6. `openclaw-config.service` writes OpenClaw configuration, followed by plugin registration in `openclaw-safrano9999.service` and the gateway in `openclaw.service`.
 7. KACHELMANN WebUI starts after OpenClaw plugin registration.
 8. Hermes configures its OpenAI-v1 provider, starts the gateway/API, and then starts its dashboard.

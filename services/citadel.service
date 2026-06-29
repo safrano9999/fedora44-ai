@@ -1,7 +1,6 @@
 [Unit]
 Description=CITADEL
-After=network.target citadel-setup.service
-Requires=citadel-setup.service
+After=network.target
 
 [Service]
 Type=simple

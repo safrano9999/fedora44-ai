@@ -220,4 +220,8 @@ https://github.com/safrano9999/CONTAINER/tree/main/fedora44-ai
 136. HERMES_DASHBOARD_PUBLISH_PORT	required
 137. HERMES_API_SERVER_PUBLISH_PORT	required
 102. KACHELMANN_PUBLISH_PORT	required
-138. FEDORA44_AI_VOLUMES	optional; default preset ${CONTAINER_NAME}-persistent:/persistent:Z
+#fedora.build.conf_example
+138. FEDORA44_AI_PORT_RANGE	optional; default preset 13333-13340
+140. OPENCLAW_PERSISTENT_PATH	optional; default preset /root/.openclaw; blank is ephemeral
+141. HERMES_PERSISTENT_PATH	optional; default preset /root/.hermes; blank is ephemeral
+142. CODEX_PERSISTENT_PATH	optional; default preset /root/.codex; blank is ephemeral
