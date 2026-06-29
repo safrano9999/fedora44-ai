@@ -687,13 +687,12 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
     /usr/local/bin/fedora44-ai-init \
     /usr/local/bin/openclaw-crontabs \
     /usr/local/bin/openclaw-allow-all \
-    /usr/lib/systemd/system-generators/fedora44-runtime-environment-generator \
- && chmod +x /usr/local/share/fedora44-ai/bin/*
+    /usr/lib/systemd/system-generators/fedora44-runtime-environment-generator
 ```
 
 - **Instruction:** Rewrites `/app/dist/` to `/usr/local/lib/node_modules/openclaw/dist/` in `openclaw-allow-all` and marks runtime programs executable.
 - **Purpose:** Adapts the shared helper to the globally installed npm layout and guarantees systemd can execute all copied scripts.
-- **Also covered:** The systemd generator and all `/usr/local/share/fedora44-ai/bin/*` initialization scripts.
+- **Also covered:** The systemd runtime environment generator.
 
 ### 51 - Enable the runtime service graph
 

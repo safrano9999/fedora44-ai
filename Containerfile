@@ -222,8 +222,7 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
     /usr/local/bin/fedora44-ai-init \
     /usr/local/bin/openclaw-crontabs \
     /usr/local/bin/openclaw-allow-all \
-    /usr/lib/systemd/system-generators/fedora44-runtime-environment-generator \
- && chmod +x /usr/local/share/fedora44-ai/bin/*
+    /usr/lib/systemd/system-generators/fedora44-runtime-environment-generator
 
 RUN systemctl enable codeanalyst.service jugo.service citadel.service pvdach.service kiwix-bridge.service napoleon.service naturalgrounding.service \
     citadel-scan.service bip39.service spanker-webui.service fedora44-ai.service \
