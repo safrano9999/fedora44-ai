@@ -10,7 +10,7 @@ This document maps the current `Containerfile` to the 55 steps reported by Build
 2. Recreate the shared hardlinks from the development SOT at `../../SCRIPTS/safrano9999/` into `./SCRIPTS/safrano9999/`.
 3. Run `SCRIPTS/safrano9999/image/relink_shared.sh` so shared files such as `config.sh`, `python_header.py`, and the common systemd units have one canonical implementation.
 4. Merge all repository `env.example` and `requirements.txt` files through `merge.sh`, deduplicating environment keys and Python package names.
-5. Merge every repository `config.conf_example` and `container.example` through `SCRIPTS/safrano9999/image/install/merge_conf.sh`.
+5. Merge every repository example class and `requirements.txt` through the hardlinked `SCRIPTS/safrano9999/merge.sh`.
 6. Resolve `fedora.build.conf_example` into the non-runtime `build.conf`, stage valid public certificates from `CERTS` inside the build context, and pass all build values as Containerfile arguments.
 7. Run the shared `config.sh`, then render `<CONTAINER_NAME>-compose.yml` and `<CONTAINER_NAME>.container` from `.env`, `config.conf`, and `container.conf`.
 8. Ask whether to pull `docker.io/safrano9999/fedora44-ai:latest` or build `localhost/fedora44-ai:latest` from this `Containerfile`.
@@ -682,7 +682,7 @@ RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/p
     --extra-root /usr/local/bin \
     --extra-root /etc/systemd/system \
     -- \
-    config.sh merge_conf.sh python_header.py \
+    config.sh python_header.py \
     openclaw-config.service openclaw.service openclaw_common.py \
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
@@ -691,7 +691,7 @@ RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/p
 
 - **Instruction:** Hardlinks `python_header.py` directly into `/usr/local/bin`, then runs `relink_shared.sh` for all named SOT files.
 - **Targets:** Matching files are relinked under `/opt/safrano9999`, `/usr/local/bin`, and `/etc/systemd/system`.
-- **Files:** Includes `config.sh`, `merge_conf.sh`, `python_header.py`, OpenClaw/Tailscale/Cloudflare units and drop-ins, `openclaw_common.py`, and `safrano9999_plugins.py`.
+- **Files:** Includes `config.sh`, `python_header.py`, OpenClaw/Tailscale/Cloudflare units and drop-ins, `openclaw_common.py`, and `safrano9999_plugins.py`.
 - **Invariant:** Deployed runtime binaries and systemd units share their inode with the SCRIPTS SOT, so in-container development changes the canonical implementation.
 
 ### 52 - Runtime path adjustment and executable modes

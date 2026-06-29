@@ -206,10 +206,11 @@ RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/p
     --extra-root /usr/local/bin \
     --extra-root /etc/systemd/system \
     -- \
-    config.sh merge_conf.sh python_header.py \
+    config.sh python_header.py \
     openclaw-config.service openclaw.service openclaw_common.py \
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
+    sqlite_persistence.sh \
     10-tailscale-ssh.conf 10-fedora-openai-v1.conf 20-safrano9999.conf
 
 RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist/#' \

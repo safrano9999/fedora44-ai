@@ -7,6 +7,7 @@ SAFRANO_DIR="$SCRIPT_DIR/safrano9999"
 SCRIPTS_DIR="$SCRIPT_DIR/SCRIPTS"
 SAFRANO_SCRIPTS_DIR="$SCRIPTS_DIR/safrano9999"
 IMAGE_SCRIPTS_DIR="$SAFRANO_SCRIPTS_DIR/image"
+SQLITE_PERSISTENCE="$SAFRANO_SCRIPTS_DIR/sqlite_persistence.sh"
 DEV_SCRIPTS_DIR="${DEV_SCRIPTS_DIR:-$SCRIPT_DIR/../../SCRIPTS}"
 
 CONFIG_ONLY=false
@@ -123,36 +124,24 @@ relink_dev_scripts() {
         mkdir -p "$(dirname "$target")"
         [ -e "$target" ] && [ "$source" -ef "$target" ] || ln -f "$source" "$target"
     done < <(find "$DEV_SCRIPTS_DIR/safrano9999" -type f -print0)
+    ln -f "$SAFRANO_SCRIPTS_DIR/merge.sh" "$SCRIPT_DIR/merge.sh"
 }
 
 relink_dev_scripts
 mkdir -p "$SAFRANO_DIR"
 for repo in "${REPOS[@]}"; do sync_repo "$repo"; done
 "$IMAGE_SCRIPTS_DIR/relink_shared.sh" \
-    config.sh merge_conf.sh python_header.py \
+    config.sh python_header.py \
     openclaw-config.service openclaw.service openclaw_common.py \
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     hermes.service hermes-dashboard.service \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
+    sqlite_persistence.sh \
     10-tailscale-ssh.conf 10-fedora-openai-v1.conf 20-safrano9999.conf
 
-# Merge and deduplicate env examples and requirements.
-echo "  Merging env.examples + requirements.txt..."
+# Merge and deduplicate every example class and requirements.
+echo "  Merging examples + requirements.txt..."
 bash "$SCRIPT_DIR/merge.sh"
-
-bash "$IMAGE_SCRIPTS_DIR/install/merge_conf.sh" \
-    "$SCRIPT_DIR" \
-    "$SCRIPT_DIR/config.conf_example" \
-    "$SCRIPT_DIR/config.fedora44-ai.conf_example" \
-    "$SCRIPT_DIR/safrano9999" \
-    "config.conf_example"
-
-bash "$IMAGE_SCRIPTS_DIR/install/merge_conf.sh" \
-    "$SCRIPT_DIR" \
-    "$SCRIPT_DIR/container.example" \
-    "$SCRIPT_DIR/container.fedora44-ai.example" \
-    "$SCRIPT_DIR/safrano9999" \
-    "container.example"
 
 if ! $NO_CONFIG; then
     echo ""
@@ -235,9 +224,14 @@ render_compose_from_conf() {
     local image="$1"
     local include_build="$2"
     local runtime_name
+    local sqlite_volumes
     local has_container_conf=false
     local inputs=()
     runtime_name="$(configured_container_name)"
+    sqlite_volumes="$("$SQLITE_PERSISTENCE" mounts \
+        --repo-root "$SAFRANO_DIR" \
+        --config-dir "$SCRIPT_DIR" \
+        --container "$runtime_name" | paste -sd, -)"
     [ -f "$SCRIPT_DIR/config.conf_example" ] && inputs+=("$SCRIPT_DIR/config.conf_example")
     [ -f "$SCRIPT_DIR/container.example" ] && inputs+=("$SCRIPT_DIR/container.example")
     [ -f "$SCRIPT_DIR/config.conf" ] && inputs+=("$SCRIPT_DIR/config.conf")
@@ -249,7 +243,7 @@ render_compose_from_conf() {
 
     (
     cd "$SCRIPT_DIR"
-    awk -v cwd="$SCRIPT_DIR" -v home="$HOME" -v image="$image" -v include_build="$include_build" -v has_container_conf="$has_container_conf" -v configured_name="$runtime_name" \
+    awk -v cwd="$SCRIPT_DIR" -v home="$HOME" -v image="$image" -v include_build="$include_build" -v has_container_conf="$has_container_conf" -v configured_name="$runtime_name" -v sqlite_volumes="$sqlite_volumes" \
         -v build_certs="$BUILD_CERTS" -v electrum_version="$BUILD_ELECTRUM_VERSION" \
         -v lnd_version="$BUILD_LND_VERSION" -v geth_version="$BUILD_GETH_VERSION" \
         -v geth_commit="$BUILD_GETH_COMMIT" -v webhook_version="$BUILD_WEBHOOK_VERSION" '
@@ -433,6 +427,12 @@ render_compose_from_conf() {
                 n = split_csv(value, items)
                 for (j = 1; j <= n; j++) add_group(items[j])
             }
+        }
+
+        n = split_csv(sqlite_volumes, items)
+        for (i = 1; i <= n; i++) {
+            split(items[i], parts, ":")
+            add_volume(items[i], parts[1])
         }
 
         add_volume(volume_prefix "-codex-cli-auth:/root/.codex:Z", volume_prefix "-codex-cli-auth")
