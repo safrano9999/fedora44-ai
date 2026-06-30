@@ -1,5 +1,6 @@
 [Unit]
 Description=Fedora44 AI deterministic initialization
+Before=openclaw-config.service openclaw-safrano9999.service openclaw.service hermes.service
 
 [Service]
 Type=oneshot

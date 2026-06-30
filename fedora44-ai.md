@@ -224,4 +224,4 @@ https://github.com/safrano9999/CONTAINER/tree/main/fedora44-ai
 138. FEDORA44_AI_PORT_RANGE	optional; default preset 13333-13340
 140. OPENCLAW_WORKSPACE_PERSISTENT_PATH	optional; default preset /root/.openclaw/workspace; blank is ephemeral
 141. HERMES_PERSISTENT_PATH	optional; default preset /root/.hermes; blank is ephemeral
-142. CODEX_PERSISTENT_PATH	optional; default preset /root/.codex; blank is ephemeral
+142. CODEX_AUTH_VOLUME_PATH	optional; default preset /root/.codex/persistent; only auth.json persists; blank is ephemeral

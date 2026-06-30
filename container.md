@@ -240,7 +240,7 @@ RUN --mount=type=cache,target=/root/.npm \
 
 - **Instruction:** `openclaw plugins install clawhub:@openclaw/codex`.
 - **Purpose:** Adds the Codex harness to OpenClaw.
-- **Runtime configuration:** `openclaw-configure.py` enables the `codex` plugin entry. `CODEX_PERSISTENT_PATH=/root/.codex` optionally persists its complete state, including `auth.json`; OpenClaw itself persists only `/root/.openclaw/workspace` when configured.
+- **Runtime configuration:** `openclaw-configure.py` enables the `codex` plugin entry. `CODEX_AUTH_VOLUME_PATH` optionally mounts a dedicated volume for `auth.json`; Codex sessions and other state remain ephemeral.
 
 ### 18 - cloudflared binary
 
