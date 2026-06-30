@@ -62,6 +62,28 @@ jobs:
           gh auth setup-git
           ./setup.sh --no-config --no-build
 
+      - name: Resolve image build configuration
+        id: build
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_conf="build.conf"
+          [ -f "$build_conf" ] || build_conf="fedora.build.conf_example"
+          set -a
+          . "./$build_conf"
+          set +a
+          for name in CERTS ELECTRUM_VERSION LND_VERSION GETH_VERSION GETH_COMMIT WEBHOOK_VERSION; do
+            [ -n "${!name:-}" ] || { echo "Missing $name" >&2; exit 1; }
+          done
+          {
+            echo "certs=$CERTS"
+            echo "electrum_version=$ELECTRUM_VERSION"
+            echo "lnd_version=$LND_VERSION"
+            echo "geth_version=$GETH_VERSION"
+            echo "geth_commit=$GETH_COMMIT"
+            echo "webhook_version=$WEBHOOK_VERSION"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -79,3 +101,10 @@ jobs:
           file: ./Containerfile
           push: true
           tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            CERTS=${{ steps.build.outputs.certs }}
+            ELECTRUM_VERSION=${{ steps.build.outputs.electrum_version }}
+            LND_VERSION=${{ steps.build.outputs.lnd_version }}
+            GETH_VERSION=${{ steps.build.outputs.geth_version }}
+            GETH_COMMIT=${{ steps.build.outputs.geth_commit }}
+            WEBHOOK_VERSION=${{ steps.build.outputs.webhook_version }}
