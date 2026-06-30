@@ -1001,7 +1001,7 @@ Token handling is deliberately environment-based:
   `BRAVE_API_KEY` as environment-backed references.
 - Hermes stores provider key environment names, not key values.
 - VikAI writes each agent token into that agent's workspace `.vikunjaenv`.
-- `CODEX_AUTH_VOLUME_PATH=/root/.codex/persistent` persists only Codex `auth.json`; blank keeps authentication and sessions ephemeral.
+- `CODEX_PERSISTENT_PATH=/root/.codex` preserves Codex state and `auth.json` in its generated named volume; blank keeps it ephemeral.
 
 Do not commit `.env`, `config.conf`, generated compose, or generated Quadlet
 files.

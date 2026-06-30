@@ -30,3 +30,6 @@ OPENCLAW_WORKSPACE_PERSISTENT_PATH=/root/.openclaw/workspace
 
 #default-preset: /root/.hermes
 HERMES_PERSISTENT_PATH=/root/.hermes
+
+#default-preset: /root/.codex
+CODEX_PERSISTENT_PATH=/root/.codex

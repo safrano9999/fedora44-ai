@@ -2,9 +2,6 @@
 #required:
 CONTAINER_NAME=fedora44-ai
 
-#default-preset: /root/.codex/persistent
-CODEX_AUTH_VOLUME_PATH=/root/.codex/persistent
-
 BIP39_PORT=11002
 
 OPENCLAW_GATEWAY_PORT=18789
