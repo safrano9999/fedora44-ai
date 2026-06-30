@@ -22,7 +22,7 @@ PLUGINS_DIR = Path(os.environ.get("OPENCLAW_SAFRANO9999_DIR", "/opt/safrano9999"
 def main() -> None:
     env = dict(os.environ)
 
-    installed = install_openclaw_plugins(PLUGINS_DIR, openclaw_cmd, links=True)
+    #installed = install_openclaw_plugins(PLUGINS_DIR, openclaw_cmd, links=True)
     disable_plugin_command_auth(PLUGINS_DIR, log_prefix="OpenClaw safrano9999 command auth disabled")
 
     if not CONFIG_PATH.exists():
@@ -36,7 +36,7 @@ def main() -> None:
     CONFIG_PATH.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     refresh_plugin_registry()
 
-    print(f"OpenClaw safrano9999 plugins installed: {', '.join(installed)}")
+    #print(f"OpenClaw safrano9999 plugins installed: {', '.join(installed)}")
     print(f"OpenClaw safrano9999 plugins registered: {', '.join(registered)}")
 
 
