@@ -195,6 +195,7 @@ COPY services/hermes-configure-openai-v1.py /usr/local/bin/hermes-configure-open
 COPY services/openclaw-patch-models-command.py /usr/local/bin/openclaw-patch-models-command
 COPY services/vikai-bootstrap-openclaw-agents.py /usr/local/bin/vikai-bootstrap-openclaw-agents
 COPY services/fedora44-ai-init.sh /usr/local/bin/fedora44-ai-init
+COPY SCRIPTS/safrano9999/named_volume_links.sh /usr/local/bin/named_volume_links.sh
 COPY services/openclaw_common.py /usr/local/bin/openclaw_common.py
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_crontabs.sh /usr/local/bin/openclaw-crontabs
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_allow_all.mjs /usr/local/bin/openclaw-allow-all
@@ -210,6 +211,7 @@ RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/p
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
     sqlite_persistence.sh optional_persistence.sh \
+    named_volume_links.sh \
     10-tailscale-ssh.conf 10-fedora-openai-v1.conf 20-safrano9999.conf
 
 RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist/#' \
@@ -220,6 +222,7 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
     /usr/local/bin/vikai-bootstrap-openclaw-agents \
     /usr/local/bin/optional_persistence.sh \
     /usr/local/bin/fedora44-ai-init \
+    /usr/local/bin/named_volume_links.sh \
     /usr/local/bin/openclaw-crontabs \
     /usr/local/bin/openclaw-allow-all \
     /usr/lib/systemd/system-generators/fedora44-runtime-environment-generator

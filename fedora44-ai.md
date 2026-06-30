@@ -153,6 +153,9 @@ https://github.com/safrano9999/ZEROINBOX
 17. OPENAI_V1_PORT	required
 18. OPENAI_V1_KEY	required
 #config.conf_example
+143. ZEROINBOX_REPORTS_VOLUME	optional; default preset 1
+144. ZEROINBOX_LOGS_VOLUME	optional; default preset 1
+145. ZEROINBOX_MAILDIR_VOLUME	optional; default preset 1
 #container_example
 
 https://github.com/safrano9999/KACHELMANN
@@ -214,6 +217,9 @@ https://github.com/safrano9999/CONTAINER/tree/main/fedora44-ai
 131. SAFRANO9999_FULLRUN_ON_START
 132. HERMES_DASHBOARD_PORT	required
 133. HERMES_API_SERVER_PORT	required
+140. OPENCLAW_WORKSPACE_PERSISTENT	optional; default preset 1
+141. HERMES_PERSISTENT	optional; default preset 1
+142. CODEX_AUTH_PERSISTENCE	optional; default preset 1
 #container_example
 134. BIP39_PUBLISH_PORT	required
 135. OPENCLAW_GATEWAY_PUBLISH_PORT	required
@@ -222,6 +228,3 @@ https://github.com/safrano9999/CONTAINER/tree/main/fedora44-ai
 102. KACHELMANN_PUBLISH_PORT	required
 #fedora.build.conf_example
 138. FEDORA44_AI_PORT_RANGE	optional; default preset 13333-13340
-140. OPENCLAW_WORKSPACE_PERSISTENT_PATH	optional; default preset /root/.openclaw/workspace; blank is ephemeral
-141. HERMES_PERSISTENT_PATH	optional; default preset /root/.hermes; blank is ephemeral
-142. CODEX_PERSISTENT_PATH	optional; default preset /root/.codex; blank is ephemeral

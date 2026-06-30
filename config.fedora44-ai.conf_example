@@ -2,6 +2,18 @@
 #required:
 CONTAINER_NAME=fedora44-ai
 
+#named-volume: /named_volumes/CODEX_AUTH /named_volumes/CODEX_AUTH/auth.json /root/.codex/auth.json
+#default-preset: 1
+CODEX_AUTH_PERSISTENCE=1
+
+#named-volume: /named_volumes/OPENCLAW_WORKSPACE /named_volumes/OPENCLAW_WORKSPACE /root/.openclaw/workspace
+#default-preset: 1
+OPENCLAW_WORKSPACE_PERSISTENT=1
+
+#named-volume: /named_volumes/HERMES /named_volumes/HERMES /root/.hermes
+#default-preset: 1
+HERMES_PERSISTENT=1
+
 BIP39_PORT=11002
 
 OPENCLAW_GATEWAY_PORT=18789

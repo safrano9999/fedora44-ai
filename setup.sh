@@ -138,6 +138,7 @@ for repo in "${REPOS[@]}"; do sync_repo "$repo"; done
     hermes.service hermes-dashboard.service \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
     sqlite_persistence.sh optional_persistence.sh \
+    named_volume_links.sh \
     10-tailscale-ssh.conf 10-fedora-openai-v1.conf 20-safrano9999.conf
 
 # Merge and deduplicate every example class and requirements.

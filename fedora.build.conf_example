@@ -24,12 +24,3 @@ WEBHOOK_VERSION=2.8.3
 
 #default-preset: 13333-13340
 FEDORA44_AI_PORT_RANGE=13333-13340
-
-#default-preset: /root/.openclaw/workspace
-OPENCLAW_WORKSPACE_PERSISTENT_PATH=/root/.openclaw/workspace
-
-#default-preset: /root/.hermes
-HERMES_PERSISTENT_PATH=/root/.hermes
-
-#default-preset: /root/.codex
-CODEX_PERSISTENT_PATH=/root/.codex
