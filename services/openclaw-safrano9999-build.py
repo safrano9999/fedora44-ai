@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""Install and register the safrano9999 OpenClaw plugins inside fedora44-ai."""
-
-from __future__ import annotations
+"""Install and register the safrano9999 OpenClaw plugins at image build time."""
 
 import json
 import os
@@ -20,23 +18,17 @@ PLUGINS_DIR = Path(os.environ.get("OPENCLAW_SAFRANO9999_DIR", "/opt/safrano9999"
 
 
 def main() -> None:
-    env = dict(os.environ)
-
-    #installed = install_openclaw_plugins(PLUGINS_DIR, openclaw_cmd, links=True)
-    #disable_plugin_command_auth(PLUGINS_DIR, log_prefix="OpenClaw safrano9999 command auth disabled")
+    installed = install_openclaw_plugins(PLUGINS_DIR, openclaw_cmd, links=True)
+    disable_plugin_command_auth(PLUGINS_DIR, log_prefix="OpenClaw safrano9999 command auth disabled")
 
     if not CONFIG_PATH.exists():
-        raise SystemExit(f"OpenClaw config missing after openclaw-config.service: {CONFIG_PATH}")
+        raise SystemExit(f"OpenClaw config missing during image build: {CONFIG_PATH}")
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    registered = register_openclaw_plugins(
-        config,
-        PLUGINS_DIR,
-        telegram_target=env.get("OPENCLAW_TELEGRAM_CHAT_ID", ""),
-    )
+    registered = register_openclaw_plugins(config, PLUGINS_DIR)
     CONFIG_PATH.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     refresh_plugin_registry()
 
-    #print(f"OpenClaw safrano9999 plugins installed: {', '.join(installed)}")
+    print(f"OpenClaw safrano9999 plugins installed: {', '.join(installed)}")
     print(f"OpenClaw safrano9999 plugins registered: {', '.join(registered)}")
 
 

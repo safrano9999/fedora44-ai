@@ -157,7 +157,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 ENV SAFRANO9999_STAGE_DIR=/opt/safrano9999/.stage
 COPY safrano9999 ${SAFRANO9999_STAGE_DIR}
 COPY SCRIPTS /opt/safrano9999/SCRIPTS
-COPY services/safrano9999_plugins.py /usr/local/bin/safrano9999_plugins.py
 
 RUN bash -lc 'chmod +x /opt/safrano9999/SCRIPTS/safrano9999/image/safrano9999_container.sh \
  && . /opt/safrano9999/SCRIPTS/safrano9999/image/safrano9999_container.sh \
@@ -180,6 +179,11 @@ RUN mkdir -p /opt/safrano9999/CITADEL/extensions/enabled \
     fi \
  && chmod +x /opt/safrano9999/CITADEL/scan.sh
 
+COPY services/safrano9999_plugins.py /usr/local/bin/safrano9999_plugins.py
+COPY services/openclaw_common.py /usr/local/bin/openclaw_common.py
+COPY services/openclaw-safrano9999-build.py /usr/local/bin/openclaw-safrano9999-build.py
+RUN python3 /usr/local/bin/openclaw-safrano9999-build.py
+
 COPY services/*.service /etc/systemd/system/
 RUN install -m 0644 /opt/safrano9999/KACHELMANN/systemd/kachelmann-webui.service /etc/systemd/system/kachelmann-webui.service \
  && install -m 0644 /opt/safrano9999/SPANKER/systemd/spanker-webui.service /etc/systemd/system/spanker-webui.service
@@ -196,7 +200,6 @@ COPY services/openclaw-patch-models-command.py /usr/local/bin/openclaw-patch-mod
 COPY services/vikai-bootstrap-openclaw-agents.py /usr/local/bin/vikai-bootstrap-openclaw-agents
 COPY services/fedora44-ai-init.sh /usr/local/bin/fedora44-ai-init
 COPY SCRIPTS/safrano9999/named_volume_links.sh /usr/local/bin/named_volume_links.sh
-COPY services/openclaw_common.py /usr/local/bin/openclaw_common.py
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_crontabs.sh /usr/local/bin/openclaw-crontabs
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_allow_all.mjs /usr/local/bin/openclaw-allow-all
 
