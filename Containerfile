@@ -65,6 +65,8 @@ RUN --mount=type=cache,target=/root/.npm \
     @anthropic-ai/claude-code@latest \
     openclaw@latest
 
+RUN curl -fsSL https://sakana.ai/fugu/install | bash
+
 RUN --mount=type=cache,target=/root/.npm \
     openclaw plugins install @openclaw/brave-plugin
 
