@@ -175,11 +175,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 ENV SAFRANO9999_STAGE_DIR=/opt/safrano9999/.stage
 COPY safrano9999 ${SAFRANO9999_STAGE_DIR}
 COPY SCRIPTS /opt/safrano9999/SCRIPTS
+COPY ref.conf ${SAFRANO9999_STAGE_DIR}/WELCOME/ref.conf
 
-RUN mkdir -p /README /usr/local/share/fedora44-ai/readme \
+RUN mkdir -p /README \
  && ln -f /opt/safrano9999/SCRIPTS/safrano9999/image/readme/paper.pdf /README/paper.pdf
-
-COPY env.example config.conf_example container.example fedora.build.conf_example /usr/local/share/fedora44-ai/readme/
 
 RUN bash -lc 'chmod +x /opt/safrano9999/SCRIPTS/safrano9999/image/safrano9999_container.sh \
  && . /opt/safrano9999/SCRIPTS/safrano9999/image/safrano9999_container.sh \
@@ -190,7 +189,7 @@ RUN bash -lc 'chmod +x /opt/safrano9999/SCRIPTS/safrano9999/image/safrano9999_co
       NaturalGrounding-Tiktok-Ying-Video-Manager@feature/webui-db-backend-dual \
  && safrano9999_OC_plugins --link CITADEL \
  && safrano9999_OC_plugins --link --fullrun --crontab "CET 01:23,CET 07:00,CET 09:40,CET 12:00,CET 15:30,CET 19:00" \
-      DAILYNEWS CALENDAR ZEROINBOX KACHELMANN SPANKER \
+      WELCOME DAILYNEWS CALENDAR ZEROINBOX KACHELMANN SPANKER \
  && rm -rf "$SAFRANO9999_STAGE_DIR"'
 
 RUN mkdir -p /opt/safrano9999/CITADEL/extensions/enabled \
@@ -223,11 +222,11 @@ COPY services/openclaw-patch-models-command.py /usr/local/bin/openclaw-patch-mod
 COPY services/vikai-bootstrap-openclaw-agents.py /usr/local/bin/vikai-bootstrap-openclaw-agents
 COPY services/fedora44-ai-init.sh /usr/local/bin/fedora44-ai-init
 COPY named_volume_links.sh /usr/local/bin/named_volume_links.sh
-COPY readme_welcome.py /usr/local/bin/safrano9999-welcome
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_crontabs.sh /usr/local/bin/openclaw-crontabs
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_allow_all.mjs /usr/local/bin/openclaw-allow-all
 
-RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/python_header.py \
+RUN install -m 0755 /opt/safrano9999/WELCOME/readme_welcome.py /usr/local/bin/safrano9999-welcome \
+ && ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/python_header.py \
  && ln -f /opt/safrano9999/SCRIPTS/safrano9999/optional_persistence.sh /usr/local/bin/optional_persistence.sh \
  && /opt/safrano9999/SCRIPTS/safrano9999/image/relink_shared.sh \
     --extra-root /usr/local/bin \

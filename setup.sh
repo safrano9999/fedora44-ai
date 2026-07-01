@@ -99,6 +99,7 @@ sync_repo() {
 
 # Clone or update repositories.
 REPOS=(
+    WELCOME
     CODEANALYST
     JUGO
     CITADEL
@@ -136,7 +137,7 @@ for repo in "${REPOS[@]}"; do sync_repo "$repo"; done
     openclaw-config.service openclaw.service openclaw_common.py \
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     hermes.service hermes-dashboard.service \
-    safrano9999-welcome.service readme_welcome.py \
+    safrano9999-welcome.service readme_welcome.py welcome_ref.py \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
     sqlite_persistence.sh optional_persistence.sh \
     named_volume_links.sh \
@@ -145,6 +146,7 @@ for repo in "${REPOS[@]}"; do sync_repo "$repo"; done
 # Merge and deduplicate every example class and requirements.
 echo "  Merging examples + requirements.txt..."
 bash "$SCRIPT_DIR/merge.sh"
+python3 "$SAFRANO_SCRIPTS_DIR/image/readme/welcome_ref.py" "$SCRIPT_DIR" "$SCRIPT_DIR/ref.conf"
 
 if ! $NO_CONFIG; then
     echo ""

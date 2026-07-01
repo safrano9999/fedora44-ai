@@ -442,6 +442,8 @@ COPY SCRIPTS /opt/safrano9999/SCRIPTS
 
 ### 31 - OpenClaw plugin installer helper
 
+Before plugin installation, the build copies the generated, value-free `ref.conf` into the staged WELCOME repository and hardlinks the SOT architecture paper into `/README/paper.pdf`. Variables marked `#secret` are absent from `ref.conf`.
+
 ```dockerfile
 COPY services/safrano9999_plugins.py /usr/local/bin/safrano9999_plugins.py
 ```
@@ -462,13 +464,14 @@ RUN bash -lc 'chmod +x /opt/safrano9999/SCRIPTS/safrano9999/image/safrano9999_co
       NaturalGrounding-Tiktok-Ying-Video-Manager@feature/webui-db-backend-dual \
  && safrano9999_OC_plugins --link CITADEL \
  && safrano9999_OC_plugins --link --fullrun --crontab "CET 01:23,CET 07:00,CET 09:40,CET 12:00,CET 15:30,CET 19:00" \
-      DAILYNEWS CALENDAR ZEROINBOX KACHELMANN SPANKER \
+      WELCOME DAILYNEWS CALENDAR ZEROINBOX KACHELMANN SPANKER \
  && rm -rf "$SAFRANO9999_STAGE_DIR"'
 ```
 
 - **Instruction:** Sources `/opt/safrano9999/SCRIPTS/safrano9999/image/safrano9999_container.sh` and runs its shared functions.
 - **Standalone targets:** CODEANALYST, JUGO, VikAI, PV_D-A-CH, KIWIX_BRIDGE, Napoleon, Solana Airgapped Workflow, and NaturalGrounding are installed under `/opt/safrano9999/<repo>`.
-- **OpenClaw plugin targets:** CITADEL, DAILYNEWS, CALENDAR, ZEROINBOX, KACHELMANN, and SPANKER are installed with links from `/opt/safrano9999`.
+- **OpenClaw plugin targets:** CITADEL, WELCOME, DAILYNEWS, CALENDAR, ZEROINBOX, KACHELMANN, and SPANKER are installed with links from `/opt/safrano9999`.
+- **Fullrun order:** WELCOME is the first generated webhook, followed by the existing report and routine plugins.
 - **Generated commands:** The helper creates `/usr/local/bin/safrano9999-webhooks`, `/usr/local/bin/safrano9999-fullrun`, the `WEBHOOK-RUNNER` plugin, and `/opt/safrano9999/.openclaw-crontab`.
 - **Plugin Python:** `safrano9999_plugins.py setup-python` prepares plugin environments before link installation.
 - **Cleanup:** `${SAFRANO9999_STAGE_DIR}` is removed after installation, leaving only the runtime copies under `/opt/safrano9999`.
@@ -698,14 +701,14 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
 
 ```dockerfile
 RUN systemctl enable codeanalyst.service jugo.service citadel.service pvdach.service kiwix-bridge.service napoleon.service naturalgrounding.service \
-    citadel-scan.service bip39.service spanker-webui.service fedora44-ai.service \
+    citadel-scan.service bip39.service spanker-webui.service flatnotes.service fedora44-ai.service safrano9999-welcome.service \
     tailscaled.service tailscale-up.service openclaw-config.service openclaw-safrano9999.service openclaw.service hermes.service \
     hermes-dashboard.service
 ```
 
 - **Instruction:** Enables the selected application and infrastructure units after deployment, hardlinking, and mode adjustment are complete.
 - **Enabled applications:** CODEANALYST, JUGO, CITADEL, PV_D-A-CH, KIWIX_BRIDGE, Napoleon, NaturalGrounding, BIP39, and SPANKER WebUI.
-- **Enabled setup units:** CITADEL scan, Fedora initialization, Tailscale daemon/up, OpenClaw config/plugin/gateway, Hermes gateway, and Hermes dashboard.
+- **Enabled setup units:** CITADEL scan, Fedora initialization, WELCOME PDF generation, Tailscale daemon/up, OpenClaw config/plugin/gateway, Hermes gateway, and Hermes dashboard.
 - **KACHELMANN:** Not enabled directly; `openclaw-safrano9999.service` starts it after registering plugins.
 - **Cloudflare:** Not enabled here. It remains conditional on `CLOUDFLARED_START` or CITADEL's runtime Cloudflare logic.
 
@@ -737,7 +740,7 @@ CMD ["/sbin/init"]
 3. `tailscaled.service` and `tailscale-up.service` establish the optional in-container Tailscale node when `TS_AUTHKEY` is present.
 4. Application WebUIs start from their individual units.
 5. CITADEL starts its WebUI, then scans after dependent services become available.
-6. `openclaw-config.service` writes OpenClaw configuration, followed by plugin registration in `openclaw-safrano9999.service` and the gateway in `openclaw.service`.
+6. `safrano9999-welcome.service` renders `/README/welcome.pdf`, then `openclaw-config.service` writes OpenClaw configuration, followed by plugin registration in `openclaw-safrano9999.service` and the gateway in `openclaw.service`.
 7. KACHELMANN WebUI starts after OpenClaw plugin registration.
 8. Hermes configures its OpenAI-v1 provider, starts the gateway/API, and then starts its dashboard.
-9. OpenClaw installs cron jobs and optionally runs `/usr/local/bin/safrano9999-fullrun` after the configured startup delay.
+9. OpenClaw installs cron jobs and optionally runs `/usr/local/bin/safrano9999-fullrun` after the configured startup delay; WELCOME sends its text and PDF first.
