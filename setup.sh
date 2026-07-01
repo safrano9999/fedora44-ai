@@ -136,6 +136,7 @@ for repo in "${REPOS[@]}"; do sync_repo "$repo"; done
     openclaw-config.service openclaw.service openclaw_common.py \
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     hermes.service hermes-dashboard.service \
+    safrano9999-welcome.service readme_welcome.py \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
     sqlite_persistence.sh optional_persistence.sh \
     named_volume_links.sh \
@@ -229,6 +230,7 @@ render_compose_from_conf() {
     local sqlite_volumes
     local persistent_volumes persistent_entries
     local has_container_conf=false
+    local has_build_conf=false
     local inputs=()
     runtime_name="$(configured_container_name)"
     sqlite_volumes="$("$SQLITE_PERSISTENCE" mounts \
@@ -247,11 +249,12 @@ render_compose_from_conf() {
         inputs+=("$SCRIPT_DIR/container.conf")
         has_container_conf=true
     fi
+    [ -f "$SCRIPT_DIR/build.conf" ] && has_build_conf=true
     [ "${#inputs[@]}" -gt 0 ] || { echo "No config/container example or conf files" >&2; exit 1; }
 
     (
     cd "$SCRIPT_DIR"
-    awk -v cwd="$SCRIPT_DIR" -v home="$HOME" -v image="$image" -v include_build="$include_build" -v has_container_conf="$has_container_conf" -v configured_name="$runtime_name" -v sqlite_volumes="$sqlite_volumes" -v persistent_volumes="$persistent_volumes" -v persistent_entries="$persistent_entries" -v extra_port_range="$BUILD_PORT_RANGE" \
+    awk -v cwd="$SCRIPT_DIR" -v home="$HOME" -v image="$image" -v include_build="$include_build" -v has_container_conf="$has_container_conf" -v has_build_conf="$has_build_conf" -v configured_name="$runtime_name" -v sqlite_volumes="$sqlite_volumes" -v persistent_volumes="$persistent_volumes" -v persistent_entries="$persistent_entries" -v extra_port_range="$BUILD_PORT_RANGE" \
         -v build_certs="$BUILD_CERTS" -v electrum_version="$BUILD_ELECTRUM_VERSION" \
         -v lnd_version="$BUILD_LND_VERSION" -v geth_version="$BUILD_GETH_VERSION" \
         -v geth_commit="$BUILD_GETH_COMMIT" -v webhook_version="$BUILD_WEBHOOK_VERSION" '
@@ -488,6 +491,7 @@ render_compose_from_conf() {
         print "    env_file:" >> "compose.yml"
         print "      - config.conf" >> "compose.yml"
         if (has_container_conf == "true") print "      - container.conf" >> "compose.yml"
+        if (has_build_conf == "true") print "      - build.conf" >> "compose.yml"
         print "      - .env" >> "compose.yml"
         n = split_csv(persistent_entries, items)
         if (n > 0 && items[1] != "") {
@@ -525,6 +529,7 @@ render_compose_from_conf() {
         print "AutoUpdate=registry" >> "fedora44-ai.container"
         print "EnvironmentFile=" cwd "/config.conf" >> "fedora44-ai.container"
         if (has_container_conf == "true") print "EnvironmentFile=" cwd "/container.conf" >> "fedora44-ai.container"
+        if (has_build_conf == "true") print "EnvironmentFile=" cwd "/build.conf" >> "fedora44-ai.container"
         print "EnvironmentFile=" cwd "/.env" >> "fedora44-ai.container"
         n = split_csv(persistent_entries, items)
         for (i = 1; i <= n; i++) if (items[i] != "") print "Environment=" systemd_dq(items[i]) >> "fedora44-ai.container"

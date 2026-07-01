@@ -176,6 +176,11 @@ ENV SAFRANO9999_STAGE_DIR=/opt/safrano9999/.stage
 COPY safrano9999 ${SAFRANO9999_STAGE_DIR}
 COPY SCRIPTS /opt/safrano9999/SCRIPTS
 
+RUN mkdir -p /README /usr/local/share/fedora44-ai/readme \
+ && ln -f /opt/safrano9999/SCRIPTS/safrano9999/image/readme/paper.pdf /README/paper.pdf
+
+COPY env.example config.conf_example container.example fedora.build.conf_example /usr/local/share/fedora44-ai/readme/
+
 RUN bash -lc 'chmod +x /opt/safrano9999/SCRIPTS/safrano9999/image/safrano9999_container.sh \
  && . /opt/safrano9999/SCRIPTS/safrano9999/image/safrano9999_container.sh \
  && safrano9999_standalone \
@@ -218,6 +223,7 @@ COPY services/openclaw-patch-models-command.py /usr/local/bin/openclaw-patch-mod
 COPY services/vikai-bootstrap-openclaw-agents.py /usr/local/bin/vikai-bootstrap-openclaw-agents
 COPY services/fedora44-ai-init.sh /usr/local/bin/fedora44-ai-init
 COPY named_volume_links.sh /usr/local/bin/named_volume_links.sh
+COPY readme_welcome.py /usr/local/bin/safrano9999-welcome
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_crontabs.sh /usr/local/bin/openclaw-crontabs
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_allow_all.mjs /usr/local/bin/openclaw-allow-all
 
@@ -233,6 +239,7 @@ RUN ln -f /opt/safrano9999/SCRIPTS/safrano9999/python_header.py /usr/local/bin/p
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
     sqlite_persistence.sh optional_persistence.sh \
     named_volume_links.sh \
+    readme_welcome.py safrano9999-welcome.service \
     10-tailscale-ssh.conf 10-fedora-openai-v1.conf 20-safrano9999.conf
 
 RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist/#' \
@@ -244,12 +251,13 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
     /usr/local/bin/optional_persistence.sh \
     /usr/local/bin/fedora44-ai-init \
     /usr/local/bin/named_volume_links.sh \
+    /usr/local/bin/safrano9999-welcome \
     /usr/local/bin/openclaw-crontabs \
     /usr/local/bin/openclaw-allow-all \
     /usr/lib/systemd/system-generators/fedora44-runtime-environment-generator
 
 RUN systemctl enable codeanalyst.service jugo.service citadel.service pvdach.service kiwix-bridge.service napoleon.service naturalgrounding.service \
-    citadel-scan.service bip39.service spanker-webui.service flatnotes.service fedora44-ai.service \
+    citadel-scan.service bip39.service spanker-webui.service flatnotes.service fedora44-ai.service safrano9999-welcome.service \
     tailscaled.service tailscale-up.service openclaw-config.service openclaw-safrano9999.service openclaw.service hermes.service \
     hermes-dashboard.service
 
