@@ -78,6 +78,7 @@ def main() -> None:
         config_path=CONFIG_PATH,
         set_agent_dir=True,
         mark_default=True,
+        heartbeat={"every": "360m", "target": "last", "directPolicy": "allow"},
     )
     origins = configure_gateway(
         config,
