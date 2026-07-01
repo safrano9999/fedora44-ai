@@ -65,7 +65,12 @@ RUN --mount=type=cache,target=/root/.npm \
     @anthropic-ai/claude-code@latest \
     openclaw@latest
 
-RUN curl -fsSL https://sakana.ai/fugu/install | bash
+RUN git clone --depth=1 https://github.com/SakanaAI/fugu.git /root/.fugu \
+ && mkdir -p /root/.codex \
+ && cp /root/.fugu/configs/files/fugu.json /root/.codex/fugu.json \
+ && sed 's|{{CODEX_HOME}}|/root/.codex|g' /root/.fugu/configs/formats/modern/files/fugu.config.toml > /root/.codex/fugu.config.toml \
+ && cp /root/.fugu/configs/injects/model_providers.sakana.toml /root/.codex/config.toml \
+ && install -m 0755 /root/.fugu/scripts/codex-fugu /usr/local/bin/codex-fugu
 
 RUN --mount=type=cache,target=/root/.npm \
     openclaw plugins install @openclaw/brave-plugin
