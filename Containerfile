@@ -1,5 +1,7 @@
 FROM quay.io/fedora/fedora:44
 
+ENV ZEROINBOX_DIR=/opt/safrano9999/ZEROINBOX
+
 ARG ELECTRUM_VERSION=4.7.2
 ARG LND_VERSION=v0.20.1-beta
 ARG GETH_VERSION=1.17.2
@@ -199,7 +201,7 @@ COPY services/hermes-configure-openai-v1.py /usr/local/bin/hermes-configure-open
 COPY services/openclaw-patch-models-command.py /usr/local/bin/openclaw-patch-models-command
 COPY services/vikai-bootstrap-openclaw-agents.py /usr/local/bin/vikai-bootstrap-openclaw-agents
 COPY services/fedora44-ai-init.sh /usr/local/bin/fedora44-ai-init
-COPY SCRIPTS/safrano9999/named_volume_links.sh /usr/local/bin/named_volume_links.sh
+COPY named_volume_links.sh /usr/local/bin/named_volume_links.sh
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_crontabs.sh /usr/local/bin/openclaw-crontabs
 COPY SCRIPTS/safrano9999/container/openclaw/openclaw_allow_all.mjs /usr/local/bin/openclaw-allow-all
 
