@@ -43,3 +43,11 @@ SAFRANO9999_FULLRUN_ON_START=1
 HERMES_DASHBOARD_PORT=9119
 
 HERMES_API_SERVER_PORT=8642
+
+#default-preset: /root/.hermes/Obsidian
+#required:
+FLATNOTES_PATH=/root/.hermes/Obsidian
+
+#default-preset: 11009
+#required:
+FLATNOTES_PORT=11009

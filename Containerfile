@@ -156,6 +156,22 @@ COPY requirements.txt /requirements.txt
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r /requirements.txt
 
+RUN --mount=type=cache,target=/root/.npm \
+    git clone --depth 1 --branch v5.5.4 https://github.com/dullage/flatnotes.git /usr/local/lib/flatnotes \
+ && cd /usr/local/lib/flatnotes \
+ && npm ci \
+ && npm run build \
+ && rm -rf .git node_modules
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install \
+      'whoosh==2.7.4' \
+      'aiofiles==25.1.0' \
+      'python-jose[cryptography]==3.5.0' \
+      'pyotp==2.9.0' \
+      'qrcode==8.2' \
+      'python-multipart==0.0.20'
+
 ENV SAFRANO9999_STAGE_DIR=/opt/safrano9999/.stage
 COPY safrano9999 ${SAFRANO9999_STAGE_DIR}
 COPY SCRIPTS /opt/safrano9999/SCRIPTS
@@ -233,7 +249,7 @@ RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist
     /usr/lib/systemd/system-generators/fedora44-runtime-environment-generator
 
 RUN systemctl enable codeanalyst.service jugo.service citadel.service pvdach.service kiwix-bridge.service napoleon.service naturalgrounding.service \
-    citadel-scan.service bip39.service spanker-webui.service fedora44-ai.service \
+    citadel-scan.service bip39.service spanker-webui.service flatnotes.service fedora44-ai.service \
     tailscaled.service tailscale-up.service openclaw-config.service openclaw-safrano9999.service openclaw.service hermes.service \
     hermes-dashboard.service
 
