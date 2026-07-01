@@ -44,9 +44,9 @@ HERMES_DASHBOARD_PORT=9119
 
 HERMES_API_SERVER_PORT=8642
 
-#default-preset: /root/.hermes/Obsidian
+#default-preset: /data
 #required:
-FLATNOTES_PATH=/root/.hermes/Obsidian
+FLATNOTES_PATH=/data
 
 #default-preset: 11009
 #required:
