@@ -313,6 +313,32 @@ render_compose_from_conf() {
         port_seen[value] = 1
         ports[++port_count] = value
     }
+    function add_identity_port(host, port) {
+        if (!(host in identity_host_seen)) identity_hosts[++identity_host_count] = host
+        identity_ports[host SUBSEP port] = 1
+    }
+    function emit_identity_range(host, first, last) {
+        if (first == last) add_port(host ":" first ":" first)
+        else add_port(host ":" first "-" last ":" first "-" last)
+    }
+    function flush_identity_ports(    h, host, port, first, last) {
+        for (h = 1; h <= identity_host_count; h++) {
+            host = identity_hosts[h]
+            first = last = 0
+            for (port = 1; port <= 65535; port++) {
+                if (!((host SUBSEP port) in identity_ports)) continue
+                if (first == 0) {
+                    first = last = port
+                } else if (port == last + 1) {
+                    last = port
+                } else {
+                    emit_identity_range(host, first, last)
+                    first = last = port
+                }
+            }
+            if (first != 0) emit_identity_range(host, first, last)
+        }
+    }
     function add_disabled_port(value) {
         if (value == "" || value in disabled_port_seen) return
         disabled_port_seen[value] = 1
@@ -438,12 +464,15 @@ render_compose_from_conf() {
             if (host == "") host = default_publish_host
             if (values[key] == "" || port == "") {
                 add_disabled_port(key "=")
+            } else if (values[key] ~ /^[0-9]+$/ && port ~ /^[0-9]+$/ && values[key] == port) {
+                add_identity_port(host, port + 0)
             } else {
                 add_port(host ":" values[key] ":" port)
-                add_env(prefix "_PUBLISH_HOST", host)
-                add_env(prefix "_PUBLISH_PORT", values[key])
             }
+            add_env(prefix "_PUBLISH_HOST", host)
+            add_env(prefix "_PUBLISH_PORT", values[key])
         }
+        flush_identity_ports()
 
         for (i = 1; i <= value_count; i++) {
             key = order[i]
