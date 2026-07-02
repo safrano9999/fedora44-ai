@@ -57,7 +57,7 @@ jobs:
       - name: Stage source repositories
         env:
           GH_TOKEN: ${{ secrets.GH_RELEASE_TOKEN || github.token }}
-          SHARED_SCRIPTS_DIR: ${{ github.workspace }}/shared-scripts
+          DEV_SCRIPTS_DIR: ${{ github.workspace }}/shared-scripts
         run: |
           gh auth setup-git
           ./setup.sh --no-config --no-build
