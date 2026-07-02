@@ -26,15 +26,15 @@ OPENCLAW_WORKSPACE_PERSISTENT=1
 #named-volume: /named_volumes/HERMES /named_volumes/HERMES/SOUL.md /root/.hermes/SOUL.md link
 #named-volume: /named_volumes/HERMES /named_volumes/HERMES/channel_directory.json /root/.hermes/channel_directory.json link
 #named-volume: /named_volumes/HERMES /named_volumes/HERMES/gateway_state.json /root/.hermes/gateway_state.json link
-#named-volume: /named_volumes/HERMES /named_volumes/HERMES/memories /root/.hermes/memories link
-#named-volume: /named_volumes/HERMES /named_volumes/HERMES/sessions /root/.hermes/sessions link
-#named-volume: /named_volumes/HERMES /named_volumes/HERMES/cron /root/.hermes/cron link
-#named-volume: /named_volumes/HERMES /named_volumes/HERMES/profiles /root/.hermes/profiles link
-#named-volume: /named_volumes/HERMES /named_volumes/HERMES/pairing /root/.hermes/pairing link
-#named-volume: /named_volumes/HERMES /named_volumes/HERMES/platforms /root/.hermes/platforms link
-#named-volume: /named_volumes/HERMES /named_volumes/HERMES/hooks /root/.hermes/hooks link
-#named-volume: /named_volumes/HERMES /named_volumes/HERMES/scripts /root/.hermes/scripts link
-#named-volume: /named_volumes/HERMES /named_volumes/HERMES/skills/custom /root/.hermes/skills/custom link
+#named-volume: /named_volumes/HERMES /named_volumes/HERMES/memories /root/.hermes/memories dir
+#named-volume: /named_volumes/HERMES /named_volumes/HERMES/sessions /root/.hermes/sessions dir
+#named-volume: /named_volumes/HERMES /named_volumes/HERMES/cron /root/.hermes/cron dir
+#named-volume: /named_volumes/HERMES /named_volumes/HERMES/profiles /root/.hermes/profiles dir
+#named-volume: /named_volumes/HERMES /named_volumes/HERMES/pairing /root/.hermes/pairing dir
+#named-volume: /named_volumes/HERMES /named_volumes/HERMES/platforms /root/.hermes/platforms dir
+#named-volume: /named_volumes/HERMES /named_volumes/HERMES/hooks /root/.hermes/hooks dir
+#named-volume: /named_volumes/HERMES /named_volumes/HERMES/scripts /root/.hermes/scripts dir
+#named-volume: /named_volumes/HERMES /named_volumes/HERMES/skills/custom /root/.hermes/skills/custom dir
 #default-preset: 1
 HERMES_PERSISTENT=1
 
