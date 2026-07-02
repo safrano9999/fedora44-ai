@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 set -a
-source "$SCRIPT_DIR/.env"
+source "$SCRIPT_DIR/${CONFIG_CONTAINER_NAME:-fedora44-ai}.env"
 set +a
 
 PYTHONPATH="$SCRIPT_DIR/SCRIPTS/safrano9999${PYTHONPATH:+:$PYTHONPATH}" python3 - <<'PY'

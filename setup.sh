@@ -17,7 +17,7 @@ NO_CACHE=false
 BUILD_ONLY=false
 NO_BUILD=false
 IMG_CHOICE=""
-INSTANCE="fedora44-ai"
+INSTANCE=""
 
 show_help() {
     cat <<'EOF'
@@ -48,6 +48,27 @@ for arg in "$@"; do
         *) INSTANCE="$arg" ;;
     esac
 done
+
+DEFAULT_CONTAINER_NAME="$(awk '
+    $0 == "#CONTAINER-NAME" { active = 1; next }
+    active && $0 ~ /^CONTAINER_NAME=/ { sub(/^[^=]*=/, ""); print; exit }
+' "$SCRIPT_DIR/config.fedora44-ai.conf_example")"
+DEFAULT_CONTAINER_NAME="${DEFAULT_CONTAINER_NAME:-fedora44-ai}"
+RUNTIME_CONTAINER_NAME="${CONFIG_CONTAINER_NAME:-${INSTANCE:-$DEFAULT_CONTAINER_NAME}}"
+if [ -t 0 ]; then
+    read -rp "  Container name [$RUNTIME_CONTAINER_NAME]: " selected_container_name
+    RUNTIME_CONTAINER_NAME="${selected_container_name:-$RUNTIME_CONTAINER_NAME}"
+fi
+[[ "$RUNTIME_CONTAINER_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] || {
+    echo "Invalid container name: $RUNTIME_CONTAINER_NAME" >&2
+    exit 2
+}
+export CONFIG_CONTAINER_NAME="$RUNTIME_CONTAINER_NAME"
+INSTANCE="$RUNTIME_CONTAINER_NAME"
+ENV_FILE="$SCRIPT_DIR/$RUNTIME_CONTAINER_NAME.env"
+CONFIG_FILE="$SCRIPT_DIR/${RUNTIME_CONTAINER_NAME}_config.conf"
+CONTAINER_CONFIG_FILE="$SCRIPT_DIR/${RUNTIME_CONTAINER_NAME}_container.conf"
+BUILD_FILE="$SCRIPT_DIR/${RUNTIME_CONTAINER_NAME}_build.conf"
 
 $NO_CACHE && rm -rf "$SAFRANO_DIR"
 
@@ -127,6 +148,7 @@ relink_dev_scripts() {
         [ -e "$target" ] && [ "$source" -ef "$target" ] || ln -f "$source" "$target"
     done < <(find "$DEV_SCRIPTS_DIR/safrano9999" -type f -print0)
     ln -f "$SAFRANO_SCRIPTS_DIR/merge.sh" "$SCRIPT_DIR/merge.sh"
+    ln -f "$SAFRANO_SCRIPTS_DIR/quadlet_finish.py" "$SCRIPT_DIR/quadlet_finish.py"
 }
 
 relink_dev_scripts
@@ -151,25 +173,12 @@ python3 "$SAFRANO_SCRIPTS_DIR/image/readme/welcome_ref.py" "$SCRIPT_DIR" "$SCRIP
 if ! $NO_CONFIG; then
     echo ""
     (cd "$SCRIPT_DIR" && bash "$SAFRANO_SCRIPTS_DIR/config.sh")
-    CONTAINER_NAME="$(basename "$SCRIPT_DIR" | tr '[:upper:]' '[:lower:]')"
-    rm -f "$SCRIPT_DIR/$CONTAINER_NAME.container" "$SCRIPT_DIR/docker-compose.yml"
+    rm -f "$SCRIPT_DIR/$RUNTIME_CONTAINER_NAME.container" "$SCRIPT_DIR/$RUNTIME_CONTAINER_NAME-compose.yml"
     (cd "$SCRIPT_DIR" && bash "$SAFRANO_SCRIPTS_DIR/legacy.sh" "$SCRIPT_DIR")
 fi
 
 configured_container_name() {
-    local value=""
-
-    for file in "$SCRIPT_DIR/config.conf" "$SCRIPT_DIR/config.fedora44-ai.conf_example"; do
-        [ -f "$file" ] || continue
-        value="$(awk -F= '$1 == "CONTAINER_NAME" { print substr($0, index($0, "=") + 1); exit }' "$file")"
-        [ -n "$value" ] && break
-    done
-    [ -n "$value" ] || value="fedora44-ai"
-    if [[ ! "$value" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
-        echo "Invalid CONTAINER_NAME: $value" >&2
-        return 1
-    fi
-    printf '%s\n' "$value"
+    printf '%s\n' "$RUNTIME_CONTAINER_NAME"
 }
 
 build_setting() {
@@ -177,7 +186,7 @@ build_setting() {
     local fallback="$2"
     local file value=""
 
-    for file in "$SCRIPT_DIR/build.conf" "$SCRIPT_DIR/fedora.build.conf_example"; do
+    for file in "$BUILD_FILE" "$SCRIPT_DIR/fedora.build.conf_example"; do
         [ -f "$file" ] || continue
         value="$(awk -F= -v key="$key" '
             $1 == key {
@@ -246,17 +255,17 @@ render_compose_from_conf() {
         --config-dir "$SCRIPT_DIR" | awk -F '\t' '{print $1 "=" $2}' | paste -sd, -)"
     [ -f "$SCRIPT_DIR/config.conf_example" ] && inputs+=("$SCRIPT_DIR/config.conf_example")
     [ -f "$SCRIPT_DIR/container.example" ] && inputs+=("$SCRIPT_DIR/container.example")
-    [ -f "$SCRIPT_DIR/config.conf" ] && inputs+=("$SCRIPT_DIR/config.conf")
-    if [ -f "$SCRIPT_DIR/container.conf" ]; then
-        inputs+=("$SCRIPT_DIR/container.conf")
+    [ -f "$CONFIG_FILE" ] && inputs+=("$CONFIG_FILE")
+    if [ -f "$CONTAINER_CONFIG_FILE" ]; then
+        inputs+=("$CONTAINER_CONFIG_FILE")
         has_container_conf=true
     fi
-    [ -f "$SCRIPT_DIR/build.conf" ] && has_build_conf=true
+    [ -f "$BUILD_FILE" ] && has_build_conf=true
     [ "${#inputs[@]}" -gt 0 ] || { echo "No config/container example or conf files" >&2; exit 1; }
 
     (
     cd "$SCRIPT_DIR"
-    awk -v cwd="$SCRIPT_DIR" -v home="$HOME" -v image="$image" -v include_build="$include_build" -v has_container_conf="$has_container_conf" -v has_build_conf="$has_build_conf" -v configured_name="$runtime_name" -v sqlite_volumes="$sqlite_volumes" -v persistent_volumes="$persistent_volumes" -v persistent_entries="$persistent_entries" -v extra_port_range="$BUILD_PORT_RANGE" \
+    awk -v cwd="$SCRIPT_DIR" -v home="$HOME" -v image="$image" -v include_build="$include_build" -v has_container_conf="$has_container_conf" -v has_build_conf="$has_build_conf" -v configured_name="$runtime_name" -v runtime_env="$(basename "$ENV_FILE")" -v runtime_config="$(basename "$CONFIG_FILE")" -v runtime_container="$(basename "$CONTAINER_CONFIG_FILE")" -v runtime_build="$(basename "$BUILD_FILE")" -v sqlite_volumes="$sqlite_volumes" -v persistent_volumes="$persistent_volumes" -v persistent_entries="$persistent_entries" -v extra_port_range="$BUILD_PORT_RANGE" \
         -v build_certs="$BUILD_CERTS" -v electrum_version="$BUILD_ELECTRUM_VERSION" \
         -v lnd_version="$BUILD_LND_VERSION" -v geth_version="$BUILD_GETH_VERSION" \
         -v geth_commit="$BUILD_GETH_COMMIT" -v webhook_version="$BUILD_WEBHOOK_VERSION" '
@@ -390,6 +399,7 @@ render_compose_from_conf() {
     }
     END {
         runtime_name = configured_name
+        quadlet_output = runtime_name ".container"
         volume_prefix = runtime_name
         gsub(/[^A-Za-z0-9_.-]/, "-", volume_prefix)
 
@@ -469,7 +479,7 @@ render_compose_from_conf() {
         }
 
         print "services:" > "compose.yml"
-        print "  fedora44-ai:" >> "compose.yml"
+        print "  " runtime_name ":" >> "compose.yml"
         if (include_build == "true") {
             print "    build:" >> "compose.yml"
             print "      context: ." >> "compose.yml"
@@ -491,10 +501,10 @@ render_compose_from_conf() {
         for (i = 1; i <= disabled_port_count; i++) print "      # " disabled_ports[i] >> "compose.yml"
         for (i = 1; i <= port_count; i++) print "      - " yaml_dq(ports[i]) >> "compose.yml"
         print "    env_file:" >> "compose.yml"
-        print "      - config.conf" >> "compose.yml"
-        if (has_container_conf == "true") print "      - container.conf" >> "compose.yml"
-        if (has_build_conf == "true") print "      - build.conf" >> "compose.yml"
-        print "      - .env" >> "compose.yml"
+        print "      - " runtime_config >> "compose.yml"
+        if (has_container_conf == "true") print "      - " runtime_container >> "compose.yml"
+        if (has_build_conf == "true") print "      - " runtime_build >> "compose.yml"
+        print "      - " runtime_env >> "compose.yml"
         n = split_csv(persistent_entries, items)
         if (n > 0 && items[1] != "") {
             print "    environment:" >> "compose.yml"
@@ -524,36 +534,33 @@ render_compose_from_conf() {
         for (i = 1; i <= disabled_named_count; i++) print "  # " disabled_named_volumes[i] ": {}" >> "compose.yml"
         for (i = 1; i <= named_count; i++) print "  " named_volumes[i] ": {}" >> "compose.yml"
 
-        print "[Container]" > "fedora44-ai.container"
-        print "ContainerName=" runtime_name >> "fedora44-ai.container"
-        print "Image=" image >> "fedora44-ai.container"
-        print "Exec=/sbin/init" >> "fedora44-ai.container"
-        print "AutoUpdate=registry" >> "fedora44-ai.container"
-        print "EnvironmentFile=" cwd "/config.conf" >> "fedora44-ai.container"
-        if (has_container_conf == "true") print "EnvironmentFile=" cwd "/container.conf" >> "fedora44-ai.container"
-        if (has_build_conf == "true") print "EnvironmentFile=" cwd "/build.conf" >> "fedora44-ai.container"
-        print "EnvironmentFile=" cwd "/.env" >> "fedora44-ai.container"
+        print "[Container]" > quadlet_output
+        print "ContainerName=" runtime_name >> quadlet_output
+        print "Image=" image >> quadlet_output
+        print "Exec=/sbin/init" >> quadlet_output
+        print "AutoUpdate=registry" >> quadlet_output
+        print "EnvironmentFile=" cwd "/" runtime_config >> quadlet_output
+        if (has_container_conf == "true") print "EnvironmentFile=" cwd "/" runtime_container >> quadlet_output
+        if (has_build_conf == "true") print "EnvironmentFile=" cwd "/" runtime_build >> quadlet_output
+        print "EnvironmentFile=" cwd "/" runtime_env >> quadlet_output
         n = split_csv(persistent_entries, items)
-        for (i = 1; i <= n; i++) if (items[i] != "") print "Environment=" systemd_dq(items[i]) >> "fedora44-ai.container"
-        for (i = 1; i <= disabled_port_count; i++) print "# " disabled_ports[i] >> "fedora44-ai.container"
-        for (i = 1; i <= port_count; i++) print "PublishPort=" ports[i] >> "fedora44-ai.container"
-        for (i = 1; i <= disabled_volume_count; i++) print "# Volume=" disabled_volumes[i] >> "fedora44-ai.container"
-        for (i = 1; i <= volume_count; i++) print "Volume=" volumes[i] >> "fedora44-ai.container"
-        for (i = 1; i <= cap_count; i++) print "AddCapability=" caps[i] >> "fedora44-ai.container"
-        for (i = 1; i <= device_count; i++) print "AddDevice=" devices[i] >> "fedora44-ai.container"
-        for (i = 1; i <= group_count; i++) print "PodmanArgs=--group-add=" groups[i] >> "fedora44-ai.container"
-        print "" >> "fedora44-ai.container"
-        print "[Service]" >> "fedora44-ai.container"
-        print "Restart=always" >> "fedora44-ai.container"
-        print "TimeoutStartSec=60" >> "fedora44-ai.container"
-        print "" >> "fedora44-ai.container"
-        print "[Install]" >> "fedora44-ai.container"
-        print "WantedBy=default.target" >> "fedora44-ai.container"
+        for (i = 1; i <= n; i++) if (items[i] != "") print "Environment=" systemd_dq(items[i]) >> quadlet_output
+        for (i = 1; i <= disabled_port_count; i++) print "# " disabled_ports[i] >> quadlet_output
+        for (i = 1; i <= port_count; i++) print "PublishPort=" ports[i] >> quadlet_output
+        for (i = 1; i <= disabled_volume_count; i++) print "# Volume=" disabled_volumes[i] >> quadlet_output
+        for (i = 1; i <= volume_count; i++) print "Volume=" volumes[i] >> quadlet_output
+        for (i = 1; i <= cap_count; i++) print "AddCapability=" caps[i] >> quadlet_output
+        for (i = 1; i <= device_count; i++) print "AddDevice=" devices[i] >> quadlet_output
+        for (i = 1; i <= group_count; i++) print "PodmanArgs=--group-add=" groups[i] >> quadlet_output
+        print "" >> quadlet_output
+        print "[Service]" >> quadlet_output
+        print "Restart=always" >> quadlet_output
+        print "TimeoutStartSec=60" >> quadlet_output
+        print "" >> quadlet_output
+        print "[Install]" >> quadlet_output
+        print "WantedBy=default.target" >> quadlet_output
     }
     ' "${inputs[@]}"
-    if [ "$runtime_name" != "fedora44-ai" ]; then
-        mv -f fedora44-ai.container "$runtime_name.container"
-    fi
     mv -f compose.yml "$runtime_name-compose.yml"
     )
 }
@@ -578,7 +585,6 @@ BUILD_ARGS=(
 
 DOCKER_IO_IMAGE="docker.io/safrano9999/fedora44-ai:latest"
 LOCAL_IMAGE="localhost/fedora44-ai:latest"
-RUNTIME_CONTAINER_NAME="$(configured_container_name)"
 COMPOSE_FILE="$SCRIPT_DIR/$RUNTIME_CONTAINER_NAME-compose.yml"
 QUADLET_FILE="$SCRIPT_DIR/$RUNTIME_CONTAINER_NAME.container"
 EXISTING_IMAGE="$(awk -F= '$1 == "Image" { print substr($0, index($0, "=") + 1); exit }' "$QUADLET_FILE" 2>/dev/null || true)"
@@ -633,3 +639,5 @@ case "$IMG_CHOICE" in
         exit 2
         ;;
 esac
+
+python3 "$SCRIPT_DIR/quadlet_finish.py" "$COMPOSE_FILE" "$QUADLET_FILE" "$RUNTIME_CONTAINER_NAME"

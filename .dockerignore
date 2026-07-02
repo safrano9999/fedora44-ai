@@ -1,6 +1,10 @@
 .git
 .github
 .env
+*.env
+*_config.conf
+*_container.conf
+*_build.conf
 .tag
 config.conf
 build.conf
