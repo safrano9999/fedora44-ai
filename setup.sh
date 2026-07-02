@@ -418,7 +418,7 @@ render_compose_from_conf() {
                 print "Invalid FEDORA44_AI_PORT_RANGE: " extra_port_range > "/dev/stderr"
                 exit 2
             }
-            for (port = range_start; port <= range_end; port++) add_port(default_publish_host ":" port ":" port)
+            add_port(default_publish_host ":" extra_port_range ":" extra_port_range)
         }
 
         for (i = 1; i <= value_count; i++) {
