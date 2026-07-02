@@ -223,7 +223,7 @@ RUN mkdir -p /usr/local/share/fedora44-ai/bin
 RUN echo '{"hasCompletedOnboarding":true}' > /root/.claude.json
 
 COPY services/openclaw-configure.py /usr/local/bin/openclaw-configure
-COPY services/openclaw-codex-models.sh /usr/local/bin/openclaw-codex-models
+COPY services/openclaw_provider_discovery.py /usr/local/bin/openclaw_provider_discovery.py
 COPY services/openclaw-safrano9999.py /usr/local/bin/openclaw-safrano9999
 COPY services/hermes-configure-openai-v1.py /usr/local/bin/hermes-configure-openai-v1
 COPY services/openclaw-patch-models-command.py /usr/local/bin/openclaw-patch-models-command
@@ -241,7 +241,7 @@ RUN install -m 0755 /opt/safrano9999/WELCOME/readme_welcome.py /usr/local/bin/sa
     --extra-root /etc/systemd/system \
     -- \
     config.sh python_header.py \
-    openclaw-config.service openclaw.service openclaw_common.py \
+    openclaw-config.service openclaw.service openclaw_common.py openclaw_provider_discovery.py \
     safrano9999_plugins.py tailscale-up.service tailscaled.service \
     cloudflared.service env.cloudflare.example config.cloudflare.conf_example config.cloudflare.container \
     sqlite_persistence.sh optional_persistence.sh \
@@ -251,7 +251,7 @@ RUN install -m 0755 /opt/safrano9999/WELCOME/readme_welcome.py /usr/local/bin/sa
 
 RUN sed -i 's#file:///app/dist/#file:///usr/local/lib/node_modules/openclaw/dist/#' \
       /usr/local/bin/openclaw-allow-all \
- && chmod +x /usr/local/bin/openclaw-configure /usr/local/bin/openclaw-codex-models /usr/local/bin/hermes-configure-openai-v1 \
+ && chmod +x /usr/local/bin/openclaw-configure /usr/local/bin/openclaw_provider_discovery.py /usr/local/bin/hermes-configure-openai-v1 \
     /usr/local/bin/openclaw-safrano9999 \
     /usr/local/bin/openclaw-patch-models-command \
     /usr/local/bin/vikai-bootstrap-openclaw-agents \
