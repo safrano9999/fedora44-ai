@@ -381,6 +381,11 @@ render_compose_from_conf() {
         group_seen[value] = 1
         groups[++group_count] = value
     }
+    function add_additional_line(value) {
+        if (value == "" || tolower(value) == "blank" || tolower(value) == "null" || value in additional_line_seen) return
+        additional_line_seen[value] = 1
+        additional_lines[++additional_line_count] = value
+    }
     function split_csv(value, out,    n, i, part) {
         n = split(value, out, ",")
         for (i = 1; i <= n; i++) out[i] = trim(out[i])
@@ -389,7 +394,8 @@ render_compose_from_conf() {
     function skip_env_key(key) {
         return key ~ /_PUBLISH_HOST$/ || key ~ /_PUBLISH_PORT$/ || \
             key ~ /_CAPABILITIES$/ || key ~ /_DEVICES$/ || \
-            key ~ /_VOLUMES$/ || key ~ /_GROUP_ADD$/
+            key ~ /_VOLUMES$/ || key ~ /_GROUP_ADD$/ || \
+            key ~ /^ADDITIONAL_LINE(_[0-9]+)?$/
     }
     /^[[:space:]]*$/ { next }
     {
@@ -477,7 +483,9 @@ render_compose_from_conf() {
         for (i = 1; i <= value_count; i++) {
             key = order[i]
             value = values[key]
-            if (key ~ /_CAPABILITIES$/) {
+            if (key ~ /^ADDITIONAL_LINE(_[0-9]+)?$/) {
+                add_additional_line(value)
+            } else if (key ~ /_CAPABILITIES$/) {
                 n = split_csv(value, items)
                 for (j = 1; j <= n; j++) add_cap(items[j])
             } else if (key ~ /_DEVICES$/) {
@@ -581,6 +589,7 @@ render_compose_from_conf() {
         for (i = 1; i <= cap_count; i++) print "AddCapability=" caps[i] >> quadlet_output
         for (i = 1; i <= device_count; i++) print "AddDevice=" devices[i] >> quadlet_output
         for (i = 1; i <= group_count; i++) print "PodmanArgs=--group-add=" groups[i] >> quadlet_output
+        for (i = 1; i <= additional_line_count; i++) print additional_lines[i] >> quadlet_output
         print "" >> quadlet_output
         print "[Service]" >> quadlet_output
         print "Restart=always" >> quadlet_output

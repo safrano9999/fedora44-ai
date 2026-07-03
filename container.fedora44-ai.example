@@ -13,3 +13,7 @@ FLATNOTES_PUBLISH_PORT=11009
 FEDORA44_AI_CAPABILITIES=NET_ADMIN,NET_RAW
 
 FEDORA44_AI_DEVICES=/dev/net/tun
+
+#repeat-group: ADDITIONAL_LINE suffix02 ADDITIONAL_LINE
+#default-preset: Network=pasta:--dns-host,1.1.1.1,--dns-host,9.9.9.9
+ADDITIONAL_LINE=Network=pasta:--dns-host,1.1.1.1,--dns-host,9.9.9.9
